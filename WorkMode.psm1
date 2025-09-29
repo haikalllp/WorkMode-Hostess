@@ -392,7 +392,7 @@ function Enable-WorkSitesBlocking {
                 $blockedCount++
             }
         } catch {
-            Write-Warning "Failed to block site $site: $($_.Exception.Message)"
+            Write-Warning "Failed to block site $($site): $($_.Exception.Message)"
         }
     }
 
@@ -1046,14 +1046,14 @@ function Get-WorkModeHelp {
     }
 
     # Usage tips
-    Write-Host "ðŸ’¡ Tips:" -ForegroundColor Cyan
-    Write-Host "  â€¢ Use 'wmh-help -Command <name>' for detailed help" -ForegroundColor White
-    Write-Host "  â€¢ Use 'wmh-help -Category <name>' to see command groups" -ForegroundColor White
-    Write-Host "  â€¢ Use 'wmh-help -Search <text>' to find specific commands" -ForegroundColor White
+    Write-Host "💡 Tips:" -ForegroundColor Cyan
+    Write-Host "  • Use 'wmh-help -Command <name>' for detailed help" -ForegroundColor White
+    Write-Host "  • Use 'wmh-help -Category <name>' to see command groups" -ForegroundColor White
+    Write-Host "  • Use 'wmh-help -Search <text>' to find specific commands" -ForegroundColor White
     Write-Host ""
 
     # Quick start examples
-    Write-Host "ðŸš€ Quick Start:" -ForegroundColor Cyan
+    Write-Host "🚀 Quick Start:" -ForegroundColor Cyan
     Write-Host "  wmh-on           # Start focusing" -ForegroundColor White
     Write-Host "  wmh-add site.com # Block distracting site" -ForegroundColor White
     Write-Host "  wmh-stats        # View productivity" -ForegroundColor White

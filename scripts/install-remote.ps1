@@ -4,7 +4,7 @@
 #                                                                             #
 #                          WorkMode Installation Script                       #
 #                                                                             #
-#        Installs and configures WorkMode for productivity tracking             #
+#        Installs and configures WorkMode for productivity tracking           #
 #        and website blocking using hostess                                   #
 #                                                                             #
 #                               Version 1.0                                   #
@@ -245,7 +245,7 @@ function Show-ProfileIntegrationInstructions {
     Write-Host "   notepad `$PROFILE" -ForegroundColor White
     Write-Host ""
     Write-Host "2. Add the following line to import WorkMode:" -ForegroundColor Cyan
-    Write-Host "   Import-Module \"$WorkModePath\WorkMode.psm1\" -Force" -ForegroundColor White
+    Write-Host "   Import-Module "$WorkModePath\WorkMode.psm1" -Force" -ForegroundColor White
     Write-Host ""
     Write-Host "3. For prompt integration and enhanced features, see the README.md" -ForegroundColor Cyan
     Write-Host "   for detailed profile integration instructions." -ForegroundColor White

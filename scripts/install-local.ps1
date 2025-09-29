@@ -2,9 +2,9 @@
 
 ###############################################################################
 #                                                                             #
-#                    WorkMode Automated Installation Script                    #
+#                    WorkMode Automated Installation Script                   #
 #                                                                             #
-#        Downloads hostess from GitHub and installs WorkMode module          #
+#        Downloads hostess from GitHub and installs WorkMode module           #
 #                                                                             #
 #                               Version 2.0                                   #
 #                                                                             #

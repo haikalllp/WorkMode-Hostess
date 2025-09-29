@@ -23,7 +23,7 @@ irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/master/scripts/
 ```powershell
 git clone https://github.com/haikalllp/WorkMode-Hostess.git
 cd WorkMode-Hostess
-.\install-local.ps1
+.\scripts\install-local.ps1
 ```
 
 ### Profile Integration
