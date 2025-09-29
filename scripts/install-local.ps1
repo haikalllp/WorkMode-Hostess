@@ -313,20 +313,31 @@ function Install-WorkModeModule {
         "config\work-sites.json"
     )
 
+    # Try both the script directory and its parent (repo root) to locate source files.
+    $possibleSourceRoots = @($PSScriptRoot, (Split-Path $PSScriptRoot -Parent))
+
     foreach ($file in $moduleFiles) {
-        $sourceFile = Join-Path $PSScriptRoot $file
+        $sourceFile = $null
+        foreach ($root in $possibleSourceRoots) {
+            $candidate = Join-Path $root $file
+            if (Test-Path $candidate) {
+                $sourceFile = $candidate
+                break
+            }
+        }
+
         $destFile = Join-Path $InstallPath $file
 
-        if (Test-Path $sourceFile) {
+        if ($sourceFile) {
             $destDir = Split-Path $destFile -Parent
             if (-not (Test-Path $destDir)) {
                 New-Item -ItemType Directory -Path $destDir -Force | Out-Null
             }
 
             Copy-Item -Path $sourceFile -Destination $destFile -Force
-            Write-Log "Copied: $file" -Level Success
+            Write-Log "Copied: $file from $sourceFile" -Level Success
         } else {
-            Write-Log "Source file not found: $sourceFile" -Level Warning
+            Write-Log "Source file not found in any of: $($possibleSourceRoots -join ';')\$file" -Level Warning
         }
     }
 
@@ -352,88 +363,33 @@ function Install-WorkModeModule {
     }
 }
 
-function Show-ManualIntegrationInstructions {
+function Show-ProfileIntegrationInstructions {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [string]$ModulePath
+        [string]$WorkModePath
     )
 
     Write-Host ""
     Write-Host "📋 Manual Profile Integration Required" -ForegroundColor Yellow
     Write-Host "=========================================" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "To complete the installation, add the following code to your PowerShell profile:" -ForegroundColor White
+    Write-Host "To complete the installation, you need to add WorkMode to your PowerShell profile:" -ForegroundColor White
     Write-Host ""
-    Write-Host "Profile location: $PROFILE" -ForegroundColor Cyan
+    Write-Host "1. Open your PowerShell profile:" -ForegroundColor Cyan
+    Write-Host "   notepad `$PROFILE" -ForegroundColor White
     Write-Host ""
-
-    $integrationCode = @"
-#region WORKMODE INTEGRATION
-# Import WorkMode module
-`$workModeModulePath = "$ModulePath"
-if (Test-Path `$workModeModulePath) {
-    try {
-        Import-Module "`$workModeModulePath\WorkMode.psm1" -Force -ErrorAction Stop
-        Write-Host "WorkMode module loaded successfully!" -ForegroundColor Green
-        Write-Host "Use 'wmh-on' to start focus time, 'wmh-off' for breaks" -ForegroundColor Cyan
-
-        # Show WorkMode status on startup
-        if (Get-Command Get-WorkModeStatus -ErrorAction SilentlyContinue) {
-            Write-Host ""
-            Get-WorkModeStatus
-            Write-Host ""
-        }
-    } catch {
-        Write-Warning "Failed to load WorkMode module: `$(`$_`Exception.Message)"
-    }
-}
-
-# WorkMode prompt integration
-`$script:WorkModeStatus = `$null
-
-function Update-WorkModePromptStatus {
-    if (Get-Command Get-WorkModeStatus -ErrorAction SilentlyContinue) {
-        try {
-            `$script:WorkModeStatus = Get-WorkModeStatus -ErrorAction SilentlyContinue
-        } catch {
-            `$script:WorkModeStatus = `$null
-        }
-    }
-}
-
-# Update prompt function (replace existing prompt function)
-function prompt {
-    # Update WorkMode status
-    Update-WorkModePromptStatus
-
-    # Build base prompt
-    `$location = Get-Location
-    `$basePrompt = "[`$location]"
-
-    # Add WorkMode status if available
-    if (`$script:WorkModeStatus -and `$script:WorkModeStatus.Mode) {
-        `$modeIcon = if (`$script:WorkModeStatus.Mode -eq "Work") { "🔴" } else { "🟢" }
-        `$basePrompt += " `$modeIcon`$(`$script:WorkModeStatus.Mode)"
-    }
-
-    # Add admin prompt
-    `$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-    if (`$isAdmin) {
-        `$basePrompt += " # "
-    } else {
-        `$basePrompt += " `$ "
-    }
-
-    return `$basePrompt
-}
-#endregion
-"@
-
-    Write-Host $integrationCode -ForegroundColor Gray
+    Write-Host "2. Add the following line to import WorkMode:" -ForegroundColor Cyan
+    Write-Host "   Import-Module $WorkModePath\WorkMode.psm1 -Force" -ForegroundColor White
     Write-Host ""
-    Write-Host "Alternatively, you can manually import the module in each session:" -ForegroundColor White
-    Write-Host "Import-Module '$ModulePath\WorkMode.psm1'" -ForegroundColor Cyan
+    Write-Host "3. For prompt integration and enhanced features, see the README.md" -ForegroundColor Cyan
+    Write-Host "   for detailed profile integration instructions." -ForegroundColor White
+    Write-Host ""
+    Write-Host "4. Save the profile and restart PowerShell, or run:" -ForegroundColor Cyan
+    Write-Host "   . `$PROFILE" -ForegroundColor White
+    Write-Host ""
+    Write-Host "After integration, you can use commands like:" -ForegroundColor Yellow
+    Write-Host "  wmh-on, wmh-off, wmh-status, wmh-stats" -ForegroundColor White
     Write-Host ""
 }
 
@@ -668,13 +624,11 @@ function Install-WorkMode {
             throw "Installation tests failed"
         }
 
-        # Show manual integration instructions
-        if ($ShowProfileInstructions) {
-            Show-ManualIntegrationInstructions -ModulePath $InstallPath
-        }
+        # Show installation summary
+        Show-InstallationSummary -InstallPath $InstallPath
 
-        # Show summary
-        Show-InstallationSummary -InstallPath $InstallPath -DataPath $DataPath
+        # Show manual integration instructions
+        Show-ProfileIntegrationInstructions -WorkModePath $InstallPath
 
         Write-Log "Installation completed successfully!" -Level Success
 

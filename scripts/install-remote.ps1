@@ -39,7 +39,27 @@ $ErrorActionPreference = "Stop"
 $ScriptName = "WorkMode Installer"
 $Version = "1.0"
 $GitHubRepo = "haikalllp/WorkMode-Hostess"
-$GitHubRawBaseUrl = "https://raw.githubusercontent.com/$GitHubRepo/master"
+
+# Resolve raw.githubusercontent base URL (try common default branches)
+function Resolve-RawBaseUrl {
+    param([string]$Repo)
+
+    $candidates = @("master","main")
+    foreach ($branch in $candidates) {
+        $url = "https://raw.githubusercontent.com/$Repo/$branch"
+        try {
+            $resp = Invoke-WebRequest -Uri $url -Method Head -UseBasicParsing -TimeoutSec 10 -Headers @{ 'User-Agent' = 'WorkMode-Installer/1.0' }
+            if ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 400) { return $url }
+        } catch {
+            # ignore and try next
+        }
+    }
+    return "https://raw.githubusercontent.com/$Repo/master"
+}
+
+$GitHubRawBaseUrl = Resolve-RawBaseUrl -Repo $GitHubRepo
+$DefaultHeaders = @{ 'User-Agent' = 'WorkMode-Installer/1.0' }
+
 $HostessGitHubRepo = "cbednarski/hostess"
 $HostessGitHubApiUrl = "https://api.github.com/repos/$HostessGitHubRepo/releases/latest"
 
@@ -117,14 +137,23 @@ function Invoke-WebRequestWithRetry {
         [Parameter(Mandatory=$false)]
         [int]$MaxRetries = 3,
         [Parameter(Mandatory=$false)]
-        [int]$RetryDelaySeconds = 2
+        [int]$RetryDelaySeconds = 2,
+        [Parameter(Mandatory=$false)]
+        [hashtable]$Headers = $DefaultHeaders,
+        [Parameter(Mandatory=$false)]
+        [string]$OutFile = $null
     )
 
     $retryCount = 0
     while ($retryCount -lt $MaxRetries) {
         try {
-            $response = Invoke-WebRequest -Uri $Uri -UseBasicParsing
-            return $response
+            if ($OutFile) {
+                Invoke-WebRequest -Uri $Uri -UseBasicParsing -OutFile $OutFile -Headers $Headers
+                return $OutFile
+            } else {
+                $response = Invoke-WebRequest -Uri $Uri -UseBasicParsing -Headers $Headers
+                return $response
+            }
         } catch {
             $retryCount++
             if ($retryCount -ge $MaxRetries) {
@@ -174,8 +203,7 @@ function Download-HostessBinary {
     $hostessDestPath = Join-Path $DestinationPath "hostess.exe"
     try {
         Write-Step "Downloading $($asset.name)"
-        $response = Invoke-WebRequestWithRetry -Uri $asset.browser_download_url
-        [System.IO.File]::WriteAllBytes($hostessDestPath, $response.Content)
+        Invoke-WebRequestWithRetry -Uri $asset.browser_download_url -OutFile $hostessDestPath -Headers $DefaultHeaders
         Write-Success "Downloaded hostess binary to: $hostessDestPath"
         return $hostessDestPath
     } catch {
@@ -218,7 +246,7 @@ function Download-WorkModeFiles {
 
         try {
             Write-Step "Downloading $($file.Source)"
-            $response = Invoke-WebRequestWithRetry -Uri $sourceUrl
+            $response = Invoke-WebRequestWithRetry -Uri $sourceUrl -Headers $DefaultHeaders
             $response.Content | Set-Content -Path $destPath -Force
             Write-Success "Downloaded $($file.Source) to: $destPath"
         } catch {
@@ -245,7 +273,7 @@ function Show-ProfileIntegrationInstructions {
     Write-Host "   notepad `$PROFILE" -ForegroundColor White
     Write-Host ""
     Write-Host "2. Add the following line to import WorkMode:" -ForegroundColor Cyan
-    Write-Host "   Import-Module "$WorkModePath\WorkMode.psm1" -Force" -ForegroundColor White
+    Write-Host "   Import-Module $WorkModePath\WorkMode.psm1 -Force" -ForegroundColor White
     Write-Host ""
     Write-Host "3. For prompt integration and enhanced features, see the README.md" -ForegroundColor Cyan
     Write-Host "   for detailed profile integration instructions." -ForegroundColor White
@@ -322,7 +350,7 @@ function Show-InstallationSummary {
     Write-Host "  Time Tracking File: time-tracking.json" -ForegroundColor White
     Write-Host "  Sites Configuration: work-sites.json" -ForegroundColor White
     Write-Host ""
-    Write-Host "📝 Follow the profile integration instructions above to complete setup!" -ForegroundColor Cyan
+    Write-Host "📝 Follow the profile integration instructions below to complete setup!" -ForegroundColor Cyan
     Write-Host ""
 }
 

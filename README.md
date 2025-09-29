@@ -24,6 +24,7 @@ irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/master/scripts/
 git clone https://github.com/haikalllp/WorkMode-Hostess.git
 cd WorkMode-Hostess
 ```
+Then run the installation script:
 ```powershell
 .\scripts\install-local.ps1
 ```
