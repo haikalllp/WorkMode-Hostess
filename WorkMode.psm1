@@ -16,10 +16,13 @@ $script:WorkModeConfig = @{
     DataDir = "$env:USERPROFILE\Documents\PowerShell\WorkMode"
     TimeTrackingFile = "time-tracking.json"
     SitesConfigFile = "work-sites.json"
-    HostessPath = "$PSScriptRoot\hostess_windows_amd64.exe"
+    HostessPath = "$PSScriptRoot\hostess.exe"
     BlockIP = "127.0.0.1"
     WorkHoursStart = 9
     WorkHoursEnd = 17
+    ModuleVersion = "1.0.0"
+    GitHubRepo = "cbednarski/hostess"
+    GitHubApiUrl = "https://api.github.com/repos/$($script:WorkModeConfig.GitHubRepo)/releases/latest"
 }
 
 # Current session state
@@ -793,6 +796,306 @@ function Update-WorkModePrompt {
 
 #endregion
 
+#region Module Updates and Maintenance
+
+<#
+.SYNOPSIS
+    Checks for updates to the WorkMode module.
+.DESCRIPTION
+    Checks GitHub for newer versions of WorkMode and hostess binary.
+.EXAMPLE
+    Update-WorkMode
+.EXAMPLE
+    work-update
+#>
+function Update-WorkMode {
+    [CmdletBinding()]
+    [Alias("work-update")]
+    param(
+        [Parameter()]
+        [switch]$Force,
+
+        [Parameter()]
+        [switch]$WhatIf
+    )
+
+    Write-Host "🔄 Checking for WorkMode updates..." -ForegroundColor Cyan
+
+    try {
+        # Check GitHub for latest hostess release
+        $response = Invoke-RestMethod -Uri $script:WorkModeConfig.GitHubApiUrl -ErrorAction Stop
+        $latestVersion = $response.tag_name.TrimStart('v')
+        $currentHostessVersion = $null
+
+        # Get current hostess version
+        try {
+            $hostessOutput = & $script:WorkModeConfig.HostessPath --help 2>$null
+            if ($hostessOutput -match "hostess") {
+                $currentHostessVersion = "installed (version unknown)"
+            }
+        } catch {
+            $currentHostessVersion = "not working"
+        }
+
+        Write-Host "Current hostess: $currentHostessVersion" -ForegroundColor White
+        Write-Host "Latest hostess: $latestVersion" -ForegroundColor White
+
+        # Find Windows binary
+        $asset = $response.assets | Where-Object { $_.name -like "*windows*amd64*.exe" -or $_.name -like "*windows*.exe" } | Select-Object -First 1
+
+        if (-not $asset) {
+            Write-Warning "No suitable Windows binary found in release"
+            return
+        }
+
+        $updateAvailable = $true
+        $updateReason = "newer version available"
+
+        if ($Force) {
+            $updateReason = "forced update"
+        } elseif ($currentHostessVersion -eq "not working") {
+            $updateReason = "current binary not working"
+        }
+
+        if (-not $updateAvailable -and -not $Force) {
+            Write-Host "✅ WorkMode is up to date" -ForegroundColor Green
+            return
+        }
+
+        Write-Host "📥 Update available ($updateReason)" -ForegroundColor Yellow
+
+        if ($WhatIf) {
+            Write-Host "What if: Would download $($asset.name)" -ForegroundColor Cyan
+            return
+        }
+
+        # Confirm update
+        $response = Read-Host "Download and install update? (y/N) [default: N]"
+        if ($response -notmatch '^[yY]$') {
+            Write-Host "Update cancelled" -ForegroundColor Yellow
+            return
+        }
+
+        # Download update
+        $tempDir = Join-Path $env:TEMP "WorkModeUpdate"
+        if (-not (Test-Path $tempDir)) {
+            New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+        }
+
+        $downloadPath = Join-Path $tempDir $asset.name
+
+        Write-Host "Downloading $($asset.name)..." -ForegroundColor Cyan
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $downloadPath -ErrorAction Stop
+
+        # Backup current binary
+        $backupPath = "$($script:WorkModeConfig.HostessPath).backup"
+        if (Test-Path $script:WorkModeConfig.HostessPath) {
+            Copy-Item -Path $script:WorkModeConfig.HostessPath -Destination $backupPath -Force
+            Write-Host "Backed up current binary" -ForegroundColor Green
+        }
+
+        # Replace binary
+        Copy-Item -Path $downloadPath -Destination $script:WorkModeConfig.HostessPath -Force
+
+        # Test new binary
+        try {
+            & $script:WorkModeConfig.HostessPath --help | Out-Null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "✅ Update successful!" -ForegroundColor Green
+                Write-Host "Hostess updated to version $latestVersion" -ForegroundColor White
+            } else {
+                throw "New binary not working"
+            }
+        } catch {
+            Write-Warning "Update failed, restoring backup..."
+            if (Test-Path $backupPath) {
+                Copy-Item -Path $backupPath -Destination $script:WorkModeConfig.HostessPath -Force
+                Write-Host "Restored previous version" -ForegroundColor Green
+            }
+            throw "Update failed: $($_.Exception.Message)"
+        }
+
+        # Cleanup
+        Remove-Item -Path $downloadPath -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $backupPath -Force -ErrorAction SilentlyContinue
+
+    } catch {
+        Write-Error "Update failed: $($_.Exception.Message)"
+    }
+}
+
+<#
+.SYNOPSIS
+    Tests the WorkMode installation.
+.DESCRIPTION
+    Verifies that all WorkMode components are working correctly.
+.EXAMPLE
+    Test-WorkModeInstallation
+.EXAMPLE
+    work-test
+#>
+function Test-WorkModeInstallation {
+    [CmdletBinding()]
+    [Alias("work-test")]
+    param()
+
+    Write-Host "🔧 Testing WorkMode installation..." -ForegroundColor Cyan
+    Write-Host ""
+
+    $tests = @(
+        @{
+            Name = "Module Directory"
+            Test = { Test-Path $PSScriptRoot }
+            Message = "Module directory exists"
+            Critical = $true
+        },
+        @{
+            Name = "Hostess Binary"
+            Test = { Test-Path $script:WorkModeConfig.HostessPath }
+            Message = "Hostess binary exists"
+            Critical = $true
+        },
+        @{
+            Name = "Hostess Functionality"
+            Test = {
+                try {
+                    & $script:WorkModeConfig.HostessPath --help | Out-Null
+                    $LASTEXITCODE -eq 0
+                } catch {
+                    $false
+                }
+            }
+            Message = "Hostess binary working"
+            Critical = $true
+        },
+        @{
+            Name = "Data Directory"
+            Test = { Test-Path $script:WorkModeConfig.DataDir }
+            Message = "Data directory accessible"
+            Critical = $false
+        },
+        @{
+            Name = "Module Functions"
+            Test = { Get-Command Enable-WorkMode -ErrorAction SilentlyContinue }
+            Message = "WorkMode functions available"
+            Critical = $true
+        },
+        @{
+            Name = "Configuration Files"
+            Test = {
+                $sitesPath = Join-Path $script:WorkModeConfig.DataDir $script:WorkModeConfig.SitesConfigFile
+                Test-Path $sitesPath
+            }
+            Message = "Configuration files exist"
+            Critical = $false
+        }
+    )
+
+    $passed = 0
+    $failed = 0
+    $criticalFailures = 0
+
+    foreach ($test in $tests) {
+        try {
+            $result = & $test.Test
+            if ($result) {
+                Write-Host "✅ $($test.Message)" -ForegroundColor Green
+                $passed++
+            } else {
+                Write-Host "❌ $($test.Message)" -ForegroundColor Red
+                $failed++
+                if ($test.Critical) {
+                    $criticalFailures++
+                }
+            }
+        } catch {
+            Write-Host "❌ $($test.Message): $($_.Exception.Message)" -ForegroundColor Red
+            $failed++
+            if ($test.Critical) {
+                $criticalFailures++
+            }
+        }
+    }
+
+    Write-Host ""
+    Write-Host "Test Results: $passed passed, $failed failed" -ForegroundColor White
+
+    if ($criticalFailures -gt 0) {
+        Write-Host "🚨 Critical failures detected! WorkMode may not function correctly." -ForegroundColor Red
+        Write-Host "Try reinstalling: .\Install-WorkMode.ps1 -Repair" -ForegroundColor Yellow
+        return $false
+    } elseif ($failed -gt 0) {
+        Write-Host "⚠️  Some tests failed, but WorkMode should still work." -ForegroundColor Yellow
+        return $true
+    } else {
+        Write-Host "🎉 All tests passed! WorkMode is properly installed." -ForegroundColor Green
+        return $true
+    }
+}
+
+<#
+.SYNOPSIS
+    Shows WorkMode module information.
+.DESCRIPTION
+    Displays version information and installation details.
+.EXAMPLE
+    Get-WorkModeInfo
+.EXAMPLE
+    work-info
+#>
+function Get-WorkModeInfo {
+    [CmdletBinding()]
+    [Alias("work-info")]
+    param()
+
+    Write-Host "📋 WorkMode Module Information" -ForegroundColor Cyan
+    Write-Host "============================" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Module Version: $($script:WorkModeConfig.ModuleVersion)" -ForegroundColor White
+    Write-Host "Module Path: $PSScriptRoot" -ForegroundColor White
+    Write-Host "Data Directory: $($script:WorkModeConfig.DataDir)" -ForegroundColor White
+    Write-Host "Hostess Path: $($script:WorkModeConfig.HostessPath)" -ForegroundColor White
+    Write-Host ""
+
+    # Check hostess version
+    try {
+        $hostessOutput = & $script:WorkModeConfig.HostessPath --help 2>$null
+        if ($hostessOutput -match "hostess") {
+            Write-Host "Hostess: Installed and working" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "Hostess: Not working or not found" -ForegroundColor Red
+    }
+
+    # Check data directory
+    if (Test-Path $script:WorkModeConfig.DataDir) {
+        $timeTrackingPath = Join-Path $script:WorkModeConfig.DataDir $script:WorkModeConfig.TimeTrackingFile
+        $sitesPath = Join-Path $script:WorkModeConfig.DataDir $script:WorkModeConfig.SitesConfigFile
+
+        Write-Host "Data Directory: Accessible" -ForegroundColor Green
+
+        if (Test-Path $timeTrackingPath) {
+            $data = Get-Content $timeTrackingPath -Raw | ConvertFrom-Json
+            $sessionCount = if ($data.Sessions) { $data.Sessions.Count } else { 0 }
+            Write-Host "Time Tracking: $sessionCount sessions recorded" -ForegroundColor White
+        }
+
+        if (Test-Path $sitesPath) {
+            $sitesData = Get-Content $sitesPath -Raw | ConvertFrom-Json
+            $totalSites = $sitesData.BlockSites.Count + $sitesData.CustomSites.Count
+            Write-Host "Block Lists: $totalSites sites configured" -ForegroundColor White
+        }
+    } else {
+        Write-Host "Data Directory: Not found (will be created on first use)" -ForegroundColor Yellow
+    }
+
+    Write-Host ""
+    Write-Host "Use 'work-test' to verify installation" -ForegroundColor Cyan
+    Write-Host "Use 'work-update' to check for updates" -ForegroundColor Cyan
+}
+
+#endregion
+
 #region Module Initialization
 
 # Initialize data directory and configuration when module is imported
@@ -802,13 +1105,15 @@ Initialize-WorkModeData
 Export-ModuleMember -Function @(
     'Enable-WorkMode', 'Disable-WorkMode', 'Get-WorkModeStatus',
     'Get-ProductivityStats', 'Get-WorkModeHistory',
-    'Add-WorkBlockSite', 'Remove-WorkBlockSite', 'Get-WorkBlockSites'
+    'Add-WorkBlockSite', 'Remove-WorkBlockSite', 'Get-WorkBlockSites',
+    'Update-WorkMode', 'Test-WorkModeInstallation', 'Get-WorkModeInfo'
 )
 
 # Export aliases
 Export-ModuleMember -Alias @(
     'work-on', 'work-off', 'work-status', 'work-stats', 'work-history',
-    'add-block-site', 'remove-block-site', 'show-block-sites'
+    'add-block-site', 'remove-block-site', 'show-block-sites',
+    'work-update', 'work-test', 'work-info'
 )
 
 #endregion

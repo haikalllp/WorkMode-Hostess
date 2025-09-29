@@ -23,9 +23,9 @@ A PowerShell productivity system that helps you track time and block distracting
 - **Category-based**: Sites organized by category (Social Media, Entertainment, Gaming, Forums)
 - **Easy Management**: Simple commands to add/remove blocked sites
 
-## Quick Start
+## Installation
 
-### Installation
+### Automated Installation
 
 1. **Run the installation script:**
    ```powershell
@@ -33,6 +33,98 @@ A PowerShell productivity system that helps you track time and block distracting
    ```
 
 2. **Open a new PowerShell session** to load WorkMode
+
+### Manual Installation
+
+If you prefer manual installation or the automated script fails:
+
+1. **Create the module directory:**
+   ```powershell
+   New-Item -ItemType Directory -Path "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode" -Force
+   ```
+
+2. **Copy the module files:**
+   ```powershell
+   Copy-Item -Path ".\WorkMode.psm1" -Destination "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode\"
+   Copy-Item -Path ".\WorkMode.psd1" -Destination "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode\"
+   Copy-Item -Path ".\hostess.exe" -Destination "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode\"
+   Copy-Item -Path ".\config" -Destination "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode\" -Recurse
+   ```
+
+3. **Import the module in your PowerShell profile** (see Profile Integration section below)
+
+### Profile Integration
+
+WorkMode requires manual integration with your PowerShell profile. Add the following code to your `$PROFILE`:
+
+```powershell
+#region WORKMODE INTEGRATION
+<#
+.SYNOPSIS
+    WorkMode Integration for Productivity Tracking
+.DESCRIPTION
+    Integrates WorkMode module for time tracking and website blocking
+    to help improve productivity and focus during work sessions.
+#>
+
+# Import WorkMode module
+Import-Module "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode\WorkMode.psm1" -Force
+
+# WorkMode prompt integration
+$script:WorkModeStatus = $null
+
+function Update-WorkModePromptStatus {
+    if (Get-Command Get-WorkModeStatus -ErrorAction SilentlyContinue) {
+        try {
+            $script:WorkModeStatus = Get-WorkModeStatus -ErrorAction SilentlyContinue
+        } catch {
+            $script:WorkModeStatus = $null
+        }
+    }
+}
+
+function prompt {
+    # Update WorkMode status
+    Update-WorkModePromptStatus
+
+    # Build base prompt
+    $location = Get-Location
+    $basePrompt = "[$location]"
+
+    # Add WorkMode status if available
+    if ($script:WorkModeStatus -and $script:WorkModeStatus.Mode) {
+        $modeIcon = if ($script:WorkModeStatus.Mode -eq "Work") { "🔴" } else { "🟢" }
+        $basePrompt += " $modeIcon$($script:WorkModeStatus.Mode)"
+    }
+
+    # Add admin prompt
+    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+    if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        $basePrompt += " # "
+    } else {
+        $basePrompt += " $ "
+    }
+
+    return $basePrompt
+}
+
+# Show WorkMode status on startup
+Write-Host ""
+Get-WorkModeStatus
+Write-Host ""
+#endregion
+```
+
+To edit your profile:
+```powershell
+notepad $PROFILE
+```
+
+After adding the integration code, restart PowerShell or run:
+```powershell
+. $PROFILE
+```
 
 ### Basic Usage
 
@@ -84,6 +176,14 @@ show-block-sites
 | `Remove-WorkBlockSite` | `remove-block-site` | Remove website from block list |
 | `Get-WorkBlockSites` | `show-block-sites` | List all blocked websites |
 
+### Module Management
+
+| Command | Description |
+|---------|-------------|
+| `Update-WorkMode` | Update hostess binary from GitHub releases |
+| `Test-WorkModeInstallation` | Verify WorkMode installation and dependencies |
+| `Get-WorkModeInfo` | Display WorkMode module information |
+
 ## Configuration
 
 ### Data Directory
@@ -93,6 +193,17 @@ WorkMode stores all data in:
 ├── time-tracking.json    # Session history and statistics
 ├── work-sites.json       # Website block lists
 └── config\              # Configuration files
+```
+
+### Module Directory
+WorkMode module is installed in:
+```
+%USERPROFILE%\Documents\PowerShell\Modules\WorkMode\
+├── WorkMode.psm1        # Main module file
+├── WorkMode.psd1        # Module manifest
+├── hostess.exe          # Hostess binary
+└── config\              # Configuration files
+    └── work-sites.json  # Default block list
 ```
 
 ### Default Blocked Sites
@@ -155,9 +266,10 @@ The system provides insights based on your patterns:
 
 ### What Gets Installed
 - `WorkMode.psm1` - Main PowerShell module
-- `hostess_windows_amd64.exe` - Hostess binary for hosts file management
+- `WorkMode.psd1` - Module manifest
+- `hostess.exe` - Hostess binary for hosts file management
 - `config/work-sites.json` - Default configuration files
-- Updated PowerShell profile with WorkMode integration
+- Manual PowerShell profile integration instructions
 
 ### Requirements
 - Windows PowerShell 5.1 or higher
@@ -165,6 +277,7 @@ The system provides insights based on your patterns:
 - Windows hosts file access
 
 ### Files Created
+- `%USERPROFILE%\Documents\PowerShell\Modules\WorkMode\` - Module directory
 - `%USERPROFILE%\Documents\PowerShell\WorkMode\` - Data directory
 - `time-tracking.json` - Your session history
 - `work-sites.json` - Your custom block lists
@@ -178,16 +291,20 @@ The system provides insights based on your patterns:
 - Check if your antivirus blocks hosts file modification
 
 **Hostess Binary Not Found**
-- Ensure `hostess_windows_amd64.exe` is in the module directory
+- Ensure `hostess.exe` is in the module directory
+- Use `Update-WorkMode` to download the latest binary
 - Check file permissions and antivirus settings
 
 **Profile Integration Issues**
-- Run the installation script with `-Force` to reinstall
-- Check your PowerShell profile for conflicting configurations
+- Verify you've added the integration code to your `$PROFILE`
+- Use `notepad $PROFILE` to check your profile configuration
+- Run `. $PROFILE` to reload your profile after changes
+- Check for conflicting prompt functions
 
 **Resetting WorkMode**
-1. Delete the WorkMode data directory: `Remove-Item -Path "$env:USERPROFILE\Documents\PowerShell\WorkMode" -Recurse`
-2. Reinstall using: `.\scripts\install-workmode.ps1 -Force`
+1. Remove the module: `Remove-Item -Path "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode" -Recurse`
+2. Delete data directory: `Remove-Item -Path "$env:USERPROFILE\Documents\PowerShell\WorkMode" -Recurse`
+3. Reinstall using: `.\scripts\install-workmode.ps1 -Force`
 
 ## Advanced Usage
 
@@ -202,6 +319,22 @@ The system provides insights based on your patterns:
 Get-Content "$env:USERPROFILE\Documents\PowerShell\WorkMode\work-sites.json" |
     ConvertFrom-Json | ConvertTo-Json -Depth 10 |
     Set-Content "my-block-list.json"
+```
+
+### Module Updates and Maintenance
+
+```powershell
+# Update hostess binary to latest version
+Update-WorkMode
+
+# Verify installation
+Test-WorkModeInstallation
+
+# Get module information
+Get-WorkModeInfo
+
+# Check for updates
+Get-WorkModeInfo
 ```
 
 ### Analyzing Your Data
