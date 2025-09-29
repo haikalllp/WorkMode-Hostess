@@ -27,33 +27,56 @@ A PowerShell productivity system that helps you track time and block distracting
 
 ### Automated Installation
 
-1. **Run the installation script:**
-   ```powershell
-   .\scripts\install-workmode.ps1
-   ```
+**Option 1: Remote Install (Recommended)**
+One-line install directly from GitHub - no cloning required:
+```powershell
+irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/main/scripts/install-remote.ps1 | iex
+```
 
-2. **Open a new PowerShell session** to load WorkMode
+**Option 2: Local Install (Advanced)**
+For users who have cloned the repository locally:
+```powershell
+# First, clone the repository
+git clone https://github.com/haikalllp/WorkMode-Hostess.git
+cd WorkMode-Hostess
+
+# Run the local installation script
+.\install-local.ps1
+```
 
 ### Manual Installation
 
-If you prefer manual installation or the automated script fails:
+If you prefer manual installation or the automated scripts fail:
 
-1. **Create the module directory:**
+1. **Clone the repository:**
+   ```powershell
+   git clone https://github.com/haikalllp/WorkMode-Hostess.git
+   cd WorkMode-Hostess
+   ```
+
+2. **Create the module directory:**
    ```powershell
    New-Item -ItemType Directory -Path "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode" -Force
    ```
 
-2. **Copy the module files:**
+3. **Copy the module files:**
    ```powershell
    Copy-Item -Path ".\WorkMode.psm1" -Destination "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode\"
    Copy-Item -Path ".\WorkMode.psd1" -Destination "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode\"
-   Copy-Item -Path ".\hostess.exe" -Destination "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode\"
    Copy-Item -Path ".\config" -Destination "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode\" -Recurse
    ```
 
-3. **Import the module in your PowerShell profile** (see Profile Integration section below)
+4. **Download hostess binary** or use the module's update function:
+   ```powershell
+   # After installation, run:
+   Update-WorkMode
+   ```
+
+5. **Import the module in your PowerShell profile** (see Profile Integration section below)
 
 ### Profile Integration
+
+⚠️ **Important**: Both installation scripts are **manual-only** for profile integration. They will **NOT** automatically modify your PowerShell profile.
 
 WorkMode requires manual integration with your PowerShell profile. Add the following code to your `$PROFILE`:
 
@@ -304,7 +327,9 @@ The system provides insights based on your patterns:
 **Resetting WorkMode**
 1. Remove the module: `Remove-Item -Path "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode" -Recurse`
 2. Delete data directory: `Remove-Item -Path "$env:USERPROFILE\Documents\PowerShell\WorkMode" -Recurse`
-3. Reinstall using: `.\scripts\install-workmode.ps1 -Force`
+3. Reinstall using:
+   - Remote install: `irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/main/scripts/install-remote.ps1 | iex`
+   - Local install: `.\install-local.ps1 -Force`
 
 ## Advanced Usage
 
@@ -379,5 +404,32 @@ If you encounter issues or have questions:
 4. Verify all files are in the correct locations
 
 ---
+
+## One-Line Remote Install
+
+For the quickest installation without cloning, run this single command:
+
+```powershell
+irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/main/scripts/install-remote.ps1 | iex
+```
+
+This will download and install WorkMode automatically from GitHub, including the hostess binary and all required files.
+
+## Local Install (Advanced Features)
+
+If you've cloned the repository or want advanced features (logging, backup/restore, repair):
+
+```powershell
+git clone https://github.com/haikalllp/WorkMode-Hostess.git
+cd WorkMode-Hostess
+.\install-local.ps1 [-ShowProfileInstructions] [-Proxy "http://proxy:8080"] [-Repair] [-Uninstall]
+```
+
+**Local install features:**
+- Logging and diagnostics
+- Backup and restore capabilities
+- Repair mode for fixing broken installations
+- Proxy support for corporate networks
+- Uninstall functionality
 
 **Remember**: WorkMode is a tool to help you understand and improve your productivity patterns. The key is consistent use and honest self-assessment! 🎯

@@ -68,7 +68,7 @@ param(
     [string]$Proxy,
 
     [Parameter()]
-    [switch]$NoProfileUpdate
+    [switch]$ShowProfileInstructions
 )
 
 # Set strict mode for better error handling
@@ -663,7 +663,7 @@ function Install-WorkMode {
         }
 
         # Show manual integration instructions
-        if (-not $NoProfileUpdate) {
+        if ($ShowProfileInstructions) {
             Show-ManualIntegrationInstructions -ModulePath $InstallPath
         }
 
