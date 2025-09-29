@@ -15,7 +15,8 @@
     Automated WorkMode installation script with GitHub integration.
 .DESCRIPTION
     Downloads the latest hostess binary from GitHub releases and installs WorkMode
-    as a proper PowerShell module with all dependencies.
+    as a proper PowerShell module with all dependencies. This script is designed for
+    users who have cloned the WorkMode repository locally.
 .PARAMETER InstallPath
     Custom installation path. Default: "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode"
 .PARAMETER DataPath
@@ -23,25 +24,30 @@
 .PARAMETER Force
     Force reinstallation even if WorkMode is already installed.
 .PARAMETER Offline
-    Skip downloading and use local files only.
+    Skip downloading from GitHub and use local hostess binary only (if available).
 .PARAMETER Repair
     Repair existing installation.
 .PARAMETER Uninstall
     Uninstall WorkMode.
 .PARAMETER Proxy
     Proxy server for downloads.
-.PARAMETER NoProfileUpdate
-    Skip profile integration (manual setup only).
+.PARAMETER ShowProfileInstructions
+    Show manual profile integration instructions.
 .EXAMPLE
-    .\Install-WorkMode.ps1
+    .\install-local.ps1
+    Downloads hostess from GitHub and installs WorkMode
 .EXAMPLE
-    .\Install-WorkMode.ps1 -Force
+    .\install-local.ps1 -Force
+    Force reinstallation with fresh downloads
 .EXAMPLE
-    .\Install-WorkMode.ps1 -Uninstall
+    .\install-local.ps1 -Offline
+    Use local files only (requires hostess binary to be present)
 .EXAMPLE
-    .\Install-WorkMode.ps1 -Repair
+    .\install-local.ps1 -Uninstall
+    Uninstall WorkMode
 .EXAMPLE
-    .\Install-WorkMode.ps1 -Proxy "http://proxy:8080"
+    .\install-local.ps1 -Proxy "http://proxy:8080"
+    Use proxy server for downloads
 #>
 
 [CmdletBinding()]
@@ -600,38 +606,35 @@ function Install-WorkMode {
         return
     }
 
-    # Handle offline mode
-    if ($Offline) {
-        Write-Log "Offline mode enabled - using local files only" -Level Info
-        if (-not (Test-Path (Join-Path $PSScriptRoot "hostess_windows_amd64.exe"))) {
-            Write-Log "Offline mode requires local hostess binary" -Level Error
-            throw "Hostess binary not found for offline installation"
+    # Download hostess from GitHub (default behavior)
+    try {
+        Write-Log "Checking for latest hostess release..." -Level Info
+        $releaseInfo = Get-LatestHostessRelease
+        $asset = Find-HostessAsset -ReleaseInfo $releaseInfo
+
+        $binaryPath = Join-Path $TempDir $asset.name
+
+        if (-not (Test-Path $binaryPath) -or $Force) {
+            Write-Log "Downloading hostess binary..." -Level Info
+            Invoke-WebRequestWithRetry -Uri $asset.browser_download_url -OutFile $binaryPath
+        } else {
+            Write-Log "Using existing downloaded binary" -Level Info
         }
-        $binaryPath = Join-Path $PSScriptRoot "hostess_windows_amd64.exe"
-    } else {
-        # Download hostess from GitHub
-        try {
-            Write-Log "Checking for latest hostess release..." -Level Info
-            $releaseInfo = Get-LatestHostessRelease
-            $asset = Find-HostessAsset -ReleaseInfo $releaseInfo
 
-            $binaryPath = Join-Path $TempDir $asset.name
+        # Test downloaded binary
+        if (-not (Test-HostessBinary -BinaryPath $binaryPath)) {
+            throw "Downloaded hostess binary is not working"
+        }
+    } catch {
+        Write-Log "Failed to download hostess from GitHub: $($_.Exception.Message)" -Level Error
 
-            if (-not (Test-Path $binaryPath) -or $Force) {
-                Write-Log "Downloading hostess binary..." -Level Info
-                Invoke-WebRequestWithRetry -Uri $asset.browser_download_url -OutFile $binaryPath
-            } else {
-                Write-Log "Using existing downloaded binary" -Level Info
-            }
-
-            # Test downloaded binary
-            if (-not (Test-HostessBinary -BinaryPath $binaryPath)) {
-                throw "Downloaded hostess binary is not working"
-            }
-        } catch {
-            Write-Log "Failed to download hostess: $($_.Exception.Message)" -Level Error
+        # Fallback to offline mode if download fails and local binary exists
+        if ($Offline -and (Test-Path (Join-Path $PSScriptRoot "hostess_windows_amd64.exe"))) {
+            Write-Log "Falling back to local hostess binary" -Level Info
+            $binaryPath = Join-Path $PSScriptRoot "hostess_windows_amd64.exe"
+        } else {
             Write-Log "You can download hostess manually from: https://github.com/cbednarski/hostess/releases/latest" -Level Info
-            throw "Hostess download failed"
+            throw "Hostess download failed. Use -Offline if you have a local binary."
         }
     }
 
@@ -690,9 +693,6 @@ function Install-WorkMode {
         throw "Installation failed. Check log file: $LogFile"
     }
 }
-
-# Export functions
-Export-ModuleMember -Function 'Install-WorkMode'
 
 # Run installation if called directly
 if ($MyInvocation.InvocationName -ne '.') {

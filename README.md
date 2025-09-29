@@ -40,7 +40,7 @@ For users who have cloned the repository locally:
 git clone https://github.com/haikalllp/WorkMode-Hostess.git
 cd WorkMode-Hostess
 
-# Run the local installation script
+# Run the local installation script (downloads hostess from GitHub)
 .\install-local.ps1
 ```
 
@@ -422,14 +422,16 @@ If you've cloned the repository or want advanced features (logging, backup/resto
 ```powershell
 git clone https://github.com/haikalllp/WorkMode-Hostess.git
 cd WorkMode-Hostess
-.\install-local.ps1 [-ShowProfileInstructions] [-Proxy "http://proxy:8080"] [-Repair] [-Uninstall]
+.\install-local.ps1 [-ShowProfileInstructions] [-Proxy "http://proxy:8080"] [-Repair] [-Uninstall] [-Offline]
 ```
 
 **Local install features:**
+- Automatically downloads hostess binary from GitHub releases
 - Logging and diagnostics
 - Backup and restore capabilities
 - Repair mode for fixing broken installations
 - Proxy support for corporate networks
 - Uninstall functionality
+- Offline mode for air-gapped environments
 
 **Remember**: WorkMode is a tool to help you understand and improve your productivity patterns. The key is consistent use and honest self-assessment! 🎯
