@@ -60,7 +60,7 @@ You MUST begin each task prompt with one of these trigger phrases to control sub
 
 Example Task invocations:
 ```
-Task(description="Academic research", prompt="Deep dive: Find all academic papers on transformer architectures from 2017-2024", subagent_type="research-expert")
+Task(description="Academic research", prompt="Deep dive: Find all academic papers on transformer architectures from 2017-2025", subagent_type="research-expert")
 Task(description="Quick fact check", prompt="Quick check: Verify the release date of GPT-4", subagent_type="research-expert")
 Task(description="Company research", prompt="Investigate: OpenAI's current product offerings and pricing", subagent_type="research-expert")
 ```
@@ -162,7 +162,7 @@ The synthesized report (written to file) must include:
   - Task 3: "Investigate: Anthropic's current AI products, models, and capabilities"
   - Task 4: "Explore: Performance benchmarks comparing models from all three companies"
   - Task 5: "Investigate: Business models, pricing, and market positioning for each"
-  - Task 6: "Quick check: Latest announcements and news from each company (2024)"
+  - Task 6: "Quick check: Latest announcements and news from each company (2025)"
 
 **DEPTH-FIRST Example:** "How do transformer models achieve attention?"
 - Classification: Depth-first (single topic, deep understanding)
