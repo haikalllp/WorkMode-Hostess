@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__upstash-context-7-mcp__resolve-library-id"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
