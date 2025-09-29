@@ -12,13 +12,13 @@ CompatiblePSEditions = @('Desktop', 'Core')
 GUID = '12345678-1234-1234-1234-123456789abc'
 
 # Author of this module
-Author = 'WorkMode-Hostess Project'
+Author = 'haikalllp'
 
 # Company or vendor of this module
-CompanyName = 'WorkMode'
+CompanyName = 'WorkMode-Hostess'
 
 # Copyright statement for this module
-Copyright = '(c) 2024 WorkMode-Hostess Project. All rights reserved.'
+Copyright = '(c) 2025 haikalllp. All rights reserved.'
 
 # Description of the functionality provided by this module
 Description = 'A PowerShell productivity module for time tracking and website blocking using hostess'
@@ -107,10 +107,10 @@ PrivateData = @{
         Tags = @('Productivity', 'TimeTracking', 'Focus', 'WebsiteBlocking', 'SelfControl')
 
         # A URL to the license for this module.
-        LicenseUri = 'https://github.com/username/WorkMode-Hostess/blob/main/LICENSE'
+        LicenseUri = 'https://github.com/haikalllp/WorkMode-Hostess/blob/main/LICENSE'
 
         # A URL to the main website for this project.
-        ProjectUri = 'https://github.com/username/WorkMode-Hostess'
+        ProjectUri = 'https://github.com/haikalllp/WorkMode-Hostess'
 
         # A URL to an icon representing this module.
         # IconUri = ''
