@@ -376,7 +376,7 @@ if (Test-Path `$workModeModulePath) {
     try {
         Import-Module "`$workModeModulePath\WorkMode.psm1" -Force -ErrorAction Stop
         Write-Host "WorkMode module loaded successfully!" -ForegroundColor Green
-        Write-Host "Use 'work-on' to start focus time, 'work-off' for breaks" -ForegroundColor Cyan
+        Write-Host "Use 'wmh-on' to start focus time, 'wmh-off' for breaks" -ForegroundColor Cyan
 
         # Show WorkMode status on startup
         if (Get-Command Get-WorkModeStatus -ErrorAction SilentlyContinue) {
@@ -533,15 +533,15 @@ function Show-InstallationSummary {
     Write-Host "Log File: $LogFile" -ForegroundColor White
     Write-Host ""
     Write-Host "Quick Start Commands:" -ForegroundColor Yellow
-    Write-Host "  work-on      - Start WorkMode (block distractions)" -ForegroundColor White
-    Write-Host "  work-off     - Stop WorkMode (allow distractions)" -ForegroundColor White
-    Write-Host "  work-status  - Show current status" -ForegroundColor White
-    Write-Host "  work-stats   - View productivity statistics" -ForegroundColor White
+    Write-Host "  wmh-on      - Start WorkMode (block distractions)" -ForegroundColor White
+    Write-Host "  wmh-off     - Stop WorkMode (allow distractions)" -ForegroundColor White
+    Write-Host "  wmh-status  - Show current status" -ForegroundColor White
+    Write-Host "  wmh-stats   - View productivity statistics" -ForegroundColor White
     Write-Host ""
     Write-Host "Website Management:" -ForegroundColor Yellow
-    Write-Host "  add-block-site example.com     - Add site to block list" -ForegroundColor White
-    Write-Host "  remove-block-site example.com  - Remove site from block list" -ForegroundColor White
-    Write-Host "  show-block-sites              - List all blocked sites" -ForegroundColor White
+    Write-Host "  wmh-add example.com     - Add site to block list" -ForegroundColor White
+    Write-Host "  wmh-remove example.com  - Remove site from block list" -ForegroundColor White
+    Write-Host "  wmh-list              - List all blocked sites" -ForegroundColor White
     Write-Host ""
 }
 

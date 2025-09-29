@@ -95,11 +95,11 @@ function Initialize-WorkModeData {
 .EXAMPLE
     Enable-WorkMode
 .EXAMPLE
-    work-on
+    wmh-on
 #>
 function Enable-WorkMode {
     [CmdletBinding()]
-    [Alias("work-on")]
+    [Alias("wmh-on")]
     param()
 
     # Check if already in work mode
@@ -145,11 +145,11 @@ function Enable-WorkMode {
 .EXAMPLE
     Disable-WorkMode
 .EXAMPLE
-    work-off
+    wmh-off
 #>
 function Disable-WorkMode {
     [CmdletBinding()]
-    [Alias("work-off")]
+    [Alias("wmh-off")]
     param()
 
     # Check if already in normal mode
@@ -195,11 +195,11 @@ function Disable-WorkMode {
 .EXAMPLE
     Get-WorkModeStatus
 .EXAMPLE
-    work-status
+    wmh-status
 #>
 function Get-WorkModeStatus {
     [CmdletBinding()]
-    [Alias("work-status")]
+    [Alias("wmh-status")]
     param()
 
     # Ensure data is initialized
@@ -229,7 +229,7 @@ function Get-WorkModeStatus {
     }
 
     Write-Host ""
-    Write-Host "Use 'work-on' to start focus time or 'work-off' for break time" -ForegroundColor White
+    Write-Host "Use 'wmh-on' to start focus time or 'wmh-off' for break time" -ForegroundColor White
 }
 
 #endregion
@@ -296,11 +296,11 @@ function Complete-Session {
 .EXAMPLE
     Get-ProductivityStats
 .EXAMPLE
-    work-stats
+    wmh-stats
 #>
 function Get-ProductivityStats {
     [CmdletBinding()]
-    [Alias("work-stats")]
+    [Alias("wmh-stats")]
     param()
 
     Initialize-WorkModeData
@@ -309,7 +309,7 @@ function Get-ProductivityStats {
     $data = Get-Content -Path $timeTrackingPath -Raw | ConvertFrom-Json
 
     if (-not $data.Sessions -or $data.Sessions.Count -eq 0) {
-        Write-Host "No sessions found. Start tracking with 'work-on' or 'work-off'" -ForegroundColor Yellow
+        Write-Host "No sessions found. Start tracking with 'wmh-on' or 'wmh-off'" -ForegroundColor Yellow
         return
     }
 
@@ -403,11 +403,11 @@ function Get-ProductivityStats {
 .EXAMPLE
     Get-WorkModeHistory
 .EXAMPLE
-    work-history
+    wmh-history
 #>
 function Get-WorkModeHistory {
     [CmdletBinding()]
-    [Alias("work-history")]
+    [Alias("wmh-history")]
     param(
         [Parameter()]
         [int]$Days = 7
@@ -544,11 +544,11 @@ function Disable-WorkSitesBlocking {
 .EXAMPLE
     Add-WorkBlockSite -Site "distractingsite.com"
 .EXAMPLE
-    add-block-site reddit.com
+    wmh-add reddit.com
 #>
 function Add-WorkBlockSite {
     [CmdletBinding()]
-    [Alias("add-block-site")]
+    [Alias("wmh-add")]
     param(
         [Parameter(Mandatory=$true)]
         [string]$Site
@@ -605,11 +605,11 @@ function Add-WorkBlockSite {
 .EXAMPLE
     Remove-WorkBlockSite -Site "distractingsite.com"
 .EXAMPLE
-    remove-block-site reddit.com
+    wmh-remove reddit.com
 #>
 function Remove-WorkBlockSite {
     [CmdletBinding()]
-    [Alias("remove-block-site")]
+    [Alias("wmh-remove")]
     param(
         [Parameter(Mandatory=$true)]
         [string]$Site
@@ -663,11 +663,11 @@ function Remove-WorkBlockSite {
 .EXAMPLE
     Get-WorkBlockSites
 .EXAMPLE
-    show-block-sites
+    wmh-list
 #>
 function Get-WorkBlockSites {
     [CmdletBinding()]
-    [Alias("show-block-sites")]
+    [Alias("wmh-list")]
     param()
 
     Initialize-WorkModeData
@@ -806,11 +806,11 @@ function Update-WorkModePrompt {
 .EXAMPLE
     Update-WorkMode
 .EXAMPLE
-    work-update
+    wmh-update
 #>
 function Update-WorkMode {
     [CmdletBinding()]
-    [Alias("work-update")]
+    [Alias("wmh-update")]
     param(
         [Parameter()]
         [switch]$Force,
@@ -932,11 +932,11 @@ function Update-WorkMode {
 .EXAMPLE
     Test-WorkModeInstallation
 .EXAMPLE
-    work-test
+    wmh-test
 #>
 function Test-WorkModeInstallation {
     [CmdletBinding()]
-    [Alias("work-test")]
+    [Alias("wmh-test")]
     param()
 
     Write-Host "🔧 Testing WorkMode installation..." -ForegroundColor Cyan
@@ -1041,11 +1041,11 @@ function Test-WorkModeInstallation {
 .EXAMPLE
     Get-WorkModeInfo
 .EXAMPLE
-    work-info
+    wmh-info
 #>
 function Get-WorkModeInfo {
     [CmdletBinding()]
-    [Alias("work-info")]
+    [Alias("wmh-info")]
     param()
 
     Write-Host "📋 WorkMode Module Information" -ForegroundColor Cyan
@@ -1090,8 +1090,345 @@ function Get-WorkModeInfo {
     }
 
     Write-Host ""
-    Write-Host "Use 'work-test' to verify installation" -ForegroundColor Cyan
-    Write-Host "Use 'work-update' to check for updates" -ForegroundColor Cyan
+    Write-Host "Use 'wmh-test' to verify installation" -ForegroundColor Cyan
+    Write-Host "Use 'wmh-update' to check for updates" -ForegroundColor Cyan
+}
+
+#endregion
+
+#region Uninstall and Help Functions
+
+<#
+.SYNOPSIS
+    Uninstalls WorkMode module and removes all related files.
+.DESCRIPTION
+    Safely removes the WorkMode module, data files, and optionally cleans up
+    user data. Provides backup options and confirmation prompts.
+.PARAMETER Backup
+    Creates a backup of user data before deletion.
+.PARAMETER KeepData
+    Keeps the user data directory (only removes module files).
+.PARAMETER Force
+    Skips confirmation prompts.
+.PARAMETER WhatIf
+    Shows what would be deleted without actually deleting anything.
+.EXAMPLE
+    Uninstall-WorkMode
+.EXAMPLE
+    wmh-uninstall
+.EXAMPLE
+    wmh-uninstall -Backup -KeepData
+.EXAMPLE
+    wmh-uninstall -Force
+#>
+function Uninstall-WorkMode {
+    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact="High")]
+    [Alias("wmh-uninstall")]
+    param(
+        [Parameter()]
+        [switch]$Backup,
+
+        [Parameter()]
+        [switch]$KeepData,
+
+        [Parameter()]
+        [switch]$Force
+    )
+
+    $modulePath = "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode"
+    $dataPath = "$env:USERPROFILE\Documents\PowerShell\WorkMode"
+
+    Write-Host "🗑️  WorkMode Uninstaller" -ForegroundColor Cyan
+    Write-Host "=======================" -ForegroundColor Cyan
+    Write-Host ""
+
+    # Show what will be removed
+    Write-Host "Items to be removed:" -ForegroundColor Yellow
+    Write-Host "  Module Directory: $modulePath" -ForegroundColor White
+
+    if (-not $KeepData -and (Test-Path $dataPath)) {
+        Write-Host "  Data Directory: $dataPath" -ForegroundColor White
+        Write-Host "    (includes time-tracking.json and work-sites.json)" -ForegroundColor Gray
+    }
+
+    if ($KeepData) {
+        Write-Host "  Data Directory: $dataPath (will be preserved)" -ForegroundColor Green
+    }
+
+    Write-Host ""
+
+    # Confirmation
+    if (-not $Force -and -not $WhatIfPreference) {
+        $response = Read-Host "Continue with uninstallation? (y/N)"
+        if ($response -notmatch '^[yY]$') {
+            Write-Host "Uninstallation cancelled." -ForegroundColor Yellow
+            return
+        }
+    }
+
+    try {
+        # Backup data if requested
+        if ($Backup -and (Test-Path $dataPath)) {
+            $backupPath = "$dataPath.backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+            Copy-Item -Path $dataPath -Destination $backupPath -Recurse -Force
+            Write-Host "✅ Data backed up to: $backupPath" -ForegroundColor Green
+        }
+
+        # Remove module directory
+        if (Test-Path $modulePath) {
+            if ($PSCmdlet.ShouldProcess($modulePath, "Remove module directory")) {
+                Remove-Item -Path $modulePath -Recurse -Force
+                Write-Host "✅ Module directory removed" -ForegroundColor Green
+            }
+        } else {
+            Write-Host "⚠️  Module directory not found: $modulePath" -ForegroundColor Yellow
+        }
+
+        # Remove data directory (unless KeepData)
+        if (-not $KeepData -and (Test-Path $dataPath)) {
+            if ($PSCmdlet.ShouldProcess($dataPath, "Remove data directory")) {
+                Remove-Item -Path $dataPath -Recurse -Force
+                Write-Host "✅ Data directory removed" -ForegroundColor Green
+            }
+        }
+
+        Write-Host ""
+        Write-Host "🎉 WorkMode has been successfully uninstalled!" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "Note: You may want to remove WorkMode integration from your PowerShell profile:" -ForegroundColor Yellow
+        Write-Host "  notepad `$PROFILE" -ForegroundColor White
+
+    } catch {
+        Write-Host "❌ Uninstallation failed: $($_.Exception.Message)" -ForegroundColor Red
+        throw
+    }
+}
+
+<#
+.SYNOPSIS
+    Displays help information for WorkMode commands.
+.DESCRIPTION
+    Shows comprehensive help for all WorkMode commands or specific command help.
+    Provides usage examples and command categorization.
+.PARAMETER Command
+    Show detailed help for a specific command.
+.PARAMETER Category
+    Show commands from a specific category.
+.PARAMETER Search
+    Search for commands containing the specified text.
+.EXAMPLE
+    Get-WorkModeHelp
+.EXAMPLE
+    wmh-help
+.EXAMPLE
+    wmh-help -Command "wmh-on"
+.EXAMPLE
+    wmh-help -Category "Core"
+.EXAMPLE
+    wmh-help -Search "block"
+#>
+function Get-WorkModeHelp {
+    [CmdletBinding()]
+    [Alias("wmh-help")]
+    param(
+        [Parameter()]
+        [string]$Command,
+
+        [Parameter()]
+        [ValidateSet("Core", "Sites", "Stats", "System")]
+        [string]$Category,
+
+        [Parameter()]
+        [string]$Search
+    )
+
+    # Command database
+    $commands = @{
+        # Core Commands
+        "wmh-on" = @{
+            Description = "Enable WorkMode (block sites, start work timer)"
+            Function = "Enable-WorkMode"
+            Category = "Core"
+            Examples = @("wmh-on", "wmh-on -Verbose")
+        }
+        "wmh-off" = @{
+            Description = "Disable WorkMode (unblock sites, start break timer)"
+            Function = "Disable-WorkMode"
+            Category = "Core"
+            Examples = @("wmh-off", "wmh-off -Verbose")
+        }
+        "wmh-status" = @{
+            Description = "Show current mode and session information"
+            Function = "Get-WorkModeStatus"
+            Category = "Core"
+            Examples = @("wmh-status", "wmh-status -Detailed")
+        }
+
+        # Statistics Commands
+        "wmh-stats" = @{
+            Description = "Show comprehensive productivity statistics"
+            Function = "Get-ProductivityStats"
+            Category = "Stats"
+            Examples = @("wmh-stats", "wmh-stats -Today")
+        }
+        "wmh-history" = @{
+            Description = "Display recent session history"
+            Function = "Get-WorkModeHistory"
+            Category = "Stats"
+            Examples = @("wmh-history", "wmh-history -Days 7")
+        }
+
+        # Site Management Commands
+        "wmh-add" = @{
+            Description = "Add website to block list"
+            Function = "Add-WorkBlockSite"
+            Category = "Sites"
+            Examples = @("wmh-add reddit.com", "wmh-add tiktok.com -Force")
+        }
+        "wmh-remove" = @{
+            Description = "Remove website from block list"
+            Function = "Remove-WorkBlockSite"
+            Category = "Sites"
+            Examples = @("wmh-remove reddit.com", "wmh-remove linkedin.com")
+        }
+        "wmh-list" = @{
+            Description = "List all blocked websites"
+            Function = "Get-WorkBlockSites"
+            Category = "Sites"
+            Examples = @("wmh-list", "wmh-list -Category Social")
+        }
+
+        # System Commands
+        "wmh-update" = @{
+            Description = "Update hostess binary from GitHub releases"
+            Function = "Update-WorkMode"
+            Category = "System"
+            Examples = @("wmh-update", "wmh-update -Force")
+        }
+        "wmh-test" = @{
+            Description = "Test WorkMode installation and dependencies"
+            Function = "Test-WorkModeInstallation"
+            Category = "System"
+            Examples = @("wmh-test", "wmh-test -Detailed")
+        }
+        "wmh-info" = @{
+            Description = "Display WorkMode module information"
+            Function = "Get-WorkModeInfo"
+            Category = "System"
+            Examples = @("wmh-info")
+        }
+        "wmh-uninstall" = @{
+            Description = "Uninstall WorkMode module and files"
+            Function = "Uninstall-WorkMode"
+            Category = "System"
+            Examples = @("wmh-uninstall", "wmh-uninstall -Backup")
+        }
+        "wmh-help" = @{
+            Description = "Show this help information"
+            Function = "Get-WorkModeHelp"
+            Category = "System"
+            Examples = @("wmh-help", "wmh-help -Command wmh-on")
+        }
+    }
+
+    Write-Host "📖 WorkMode Command Help" -ForegroundColor Cyan
+    Write-Host "=========================" -ForegroundColor Cyan
+    Write-Host ""
+
+    # Specific command help
+    if ($Command) {
+        if ($commands.ContainsKey($Command)) {
+            $cmd = $commands[$Command]
+            Write-Host "Command: $Command" -ForegroundColor Yellow
+            Write-Host "Description: $($cmd.Description)" -ForegroundColor White
+            Write-Host "Category: $($cmd.Category)" -ForegroundColor White
+            Write-Host ""
+            Write-Host "Examples:" -ForegroundColor Cyan
+            foreach ($example in $cmd.Examples) {
+                Write-Host "  $example" -ForegroundColor White
+            }
+            Write-Host ""
+
+            # Show PowerShell help for the function
+            try {
+                Get-Help $cmd.Function -Detailed | Out-Host
+            } catch {
+                Write-Host "Use 'Get-Help $($cmd.Function)' for detailed help." -ForegroundColor Gray
+            }
+        } else {
+            Write-Host "Command '$Command' not found." -ForegroundColor Red
+            Write-Host "Use 'wmh-help' to see all available commands." -ForegroundColor Yellow
+        }
+        return
+    }
+
+    # Filter by category
+    $filteredCommands = $commands.Clone()
+    if ($Category) {
+        $filteredCommands = $commands.GetEnumerator() | Where-Object { $_.Value.Category -eq $Category } | ForEach-Object { @{ $_.Key = $_.Value } }
+    }
+
+    # Search functionality
+    if ($Search) {
+        $filteredCommands = $commands.GetEnumerator() | Where-Object {
+            $_.Key -like "*$Search*" -or $_.Value.Description -like "*$Search*"
+        } | ForEach-Object { @{ $_.Key = $_.Value } }
+    }
+
+    if ($filteredCommands.Count -eq 0) {
+        Write-Host "No commands found matching your criteria." -ForegroundColor Yellow
+        return
+    }
+
+    # Group by category
+    $categories = @{}
+    foreach ($cmd in $filteredCommands.GetEnumerator()) {
+        $cat = $cmd.Value.Category
+        if (-not $categories.ContainsKey($cat)) {
+            $categories[$cat] = @{}
+        }
+        $categories[$cat][$cmd.Key] = $cmd.Value
+    }
+
+    # Display by category
+    foreach ($cat in @("Core", "Sites", "Stats", "System")) {
+        if ($categories.ContainsKey($cat)) {
+            $catCommands = $categories[$cat]
+
+            # Category header
+            $catIcon = switch ($cat) {
+                "Core" { "🎯" }
+                "Sites" { "🌐" }
+                "Stats" { "📊" }
+                "System" { "⚙️" }
+            }
+            Write-Host "$catIcon $cat Commands" -ForegroundColor Yellow
+            Write-Host "$('-' * ($cat.Length + 10))" -ForegroundColor Gray
+
+            # Commands in this category
+            foreach ($cmdName in $catCommands.Keys | Sort-Object) {
+                $cmdInfo = $catCommands[$cmdName]
+                Write-Host "  $cmdName" -ForegroundColor Green
+                Write-Host "    $($cmdInfo.Description)" -ForegroundColor White
+            }
+            Write-Host ""
+        }
+    }
+
+    # Usage tips
+    Write-Host "💡 Tips:" -ForegroundColor Cyan
+    Write-Host "  • Use 'wmh-help -Command <name>' for detailed help" -ForegroundColor White
+    Write-Host "  • Use 'wmh-help -Category <name>' to see command groups" -ForegroundColor White
+    Write-Host "  • Use 'wmh-help -Search <text>' to find specific commands" -ForegroundColor White
+    Write-Host ""
+
+    # Quick start examples
+    Write-Host "🚀 Quick Start:" -ForegroundColor Cyan
+    Write-Host "  wmh-on           # Start focusing" -ForegroundColor White
+    Write-Host "  wmh-add site.com # Block distracting site" -ForegroundColor White
+    Write-Host "  wmh-stats        # View productivity" -ForegroundColor White
+    Write-Host "  wmh-off          # Take a break" -ForegroundColor White
+    Write-Host "  wmh-help         # Show this help" -ForegroundColor White
 }
 
 #endregion
@@ -1106,14 +1443,15 @@ Export-ModuleMember -Function @(
     'Enable-WorkMode', 'Disable-WorkMode', 'Get-WorkModeStatus',
     'Get-ProductivityStats', 'Get-WorkModeHistory',
     'Add-WorkBlockSite', 'Remove-WorkBlockSite', 'Get-WorkBlockSites',
-    'Update-WorkMode', 'Test-WorkModeInstallation', 'Get-WorkModeInfo'
+    'Update-WorkMode', 'Test-WorkModeInstallation', 'Get-WorkModeInfo',
+    'Uninstall-WorkMode', 'Get-WorkModeHelp'
 )
 
 # Export aliases
 Export-ModuleMember -Alias @(
-    'work-on', 'work-off', 'work-status', 'work-stats', 'work-history',
-    'add-block-site', 'remove-block-site', 'show-block-sites',
-    'work-update', 'work-test', 'work-info'
+    'wmh-on', 'wmh-off', 'wmh-status', 'wmh-stats', 'wmh-history',
+    'wmh-add', 'wmh-remove', 'wmh-list',
+    'wmh-update', 'wmh-test', 'wmh-info', 'wmh-help', 'wmh-uninstall'
 )
 
 #endregion

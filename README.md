@@ -47,35 +47,40 @@ notepad $PROFILE
 
 ```powershell
 # Start focusing (blocks websites, starts timer)
-work-on
+wmh-on
 
 # Take a break (unblocks websites, starts break timer)
-work-off
+wmh-off
 
 # Check current status
-work-status
+wmh-status
 
 # View productivity statistics
-work-stats
+wmh-stats
 
 # Add/remove blocked sites
-add-block-site reddit.com
-remove-block-site reddit.com
-show-block-sites
+wmh-add reddit.com
+wmh-remove reddit.com
+wmh-list
 ```
 
 ## Commands Reference
 
 | Command | Alias | Description |
 |---------|-------|-------------|
-| `Enable-WorkMode` | `work-on` | Enable WorkMode (block sites, start timer) |
-| `Disable-WorkMode` | `work-off` | Disable WorkMode (unblock sites, start timer) |
-| `Get-WorkModeStatus` | `work-status` | Show current mode and session info |
-| `Get-ProductivityStats` | `work-stats` | Show productivity statistics |
-| `Add-WorkBlockSite` | `add-block-site` | Add website to block list |
-| `Remove-WorkBlockSite` | `remove-block-site` | Remove website from block list |
-| `Get-WorkBlockSites` | `show-block-sites` | List all blocked websites |
-| `Update-WorkMode` | | Update hostess binary from GitHub |
+| `Enable-WorkMode` | `wmh-on` | Enable WorkMode (block sites, start timer) |
+| `Disable-WorkMode` | `wmh-off` | Disable WorkMode (unblock sites, start timer) |
+| `Get-WorkModeStatus` | `wmh-status` | Show current mode and session info |
+| `Get-ProductivityStats` | `wmh-stats` | Show productivity statistics |
+| `Get-WorkModeHistory` | `wmh-history` | Display recent session history |
+| `Add-WorkBlockSite` | `wmh-add` | Add website to block list |
+| `Remove-WorkBlockSite` | `wmh-remove` | Remove website from block list |
+| `Get-WorkBlockSites` | `wmh-list` | List all blocked websites |
+| `Update-WorkMode` | `wmh-update` | Update hostess binary from GitHub |
+| `Test-WorkModeInstallation` | `wmh-test` | Test WorkMode installation |
+| `Get-WorkModeInfo` | `wmh-info` | Display module information |
+| `Get-WorkModeHelp` | `wmh-help` | Show command help |
+| `Uninstall-WorkMode` | `wmh-uninstall` | Uninstall WorkMode module |
 
 ## Configuration
 
@@ -123,7 +128,7 @@ show-block-sites
 - Check if your antivirus blocks hosts file modification
 
 **Hostess Binary Issues**
-- Use `Update-WorkMode` to download the latest binary
+- Use `wmh-update` to download the latest binary
 - Ensure `hostess.exe` is in the module directory
 
 **Profile Integration Issues**
@@ -136,7 +141,7 @@ show-block-sites
 ```powershell
 # Add multiple sites
 "distracting1.com", "distracting2.com" | ForEach-Object {
-    add-block-site $_
+    wmh-add $_
 }
 
 # Export your block list
@@ -176,3 +181,15 @@ If you encounter issues:
 ---
 
 **Remember**: WorkMode is a tool to help you understand and improve your productivity patterns. The key is consistent use and honest self-assessment! 🎯
+
+## Quick Command Reference
+
+- `wmh-help` - Show all commands and get help
+- `wmh-on` - Start WorkMode (block distractions)
+- `wmh-off` - Stop WorkMode (allow distractions)
+- `wmh-status` - Check current status
+- `wmh-stats` - View productivity statistics
+- `wmh-add site.com` - Block a website
+- `wmh-remove site.com` - Unblock a website
+- `wmh-list` - Show all blocked sites
+- `wmh-uninstall` - Remove WorkMode completely

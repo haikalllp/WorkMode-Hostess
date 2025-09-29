@@ -254,7 +254,7 @@ function Show-ProfileIntegrationInstructions {
     Write-Host "   . `$PROFILE" -ForegroundColor White
     Write-Host ""
     Write-Host "After integration, you can use commands like:" -ForegroundColor Yellow
-    Write-Host "  work-on, work-off, work-status, work-stats" -ForegroundColor White
+    Write-Host "  wmh-on, wmh-off, wmh-status, wmh-stats" -ForegroundColor White
     Write-Host ""
 }
 
@@ -306,15 +306,15 @@ function Show-InstallationSummary {
     Write-Host "Installation Path: $InstallPath" -ForegroundColor White
     Write-Host ""
     Write-Host "Quick Start Commands:" -ForegroundColor Yellow
-    Write-Host "  work-on      - Start WorkMode (block distractions)" -ForegroundColor White
-    Write-Host "  work-off     - Stop WorkMode (allow distractions)" -ForegroundColor White
-    Write-Host "  work-status  - Show current status" -ForegroundColor White
-    Write-Host "  work-stats   - View productivity statistics" -ForegroundColor White
+    Write-Host "  wmh-on      - Start WorkMode (block distractions)" -ForegroundColor White
+    Write-Host "  wmh-off     - Stop WorkMode (allow distractions)" -ForegroundColor White
+    Write-Host "  wmh-status  - Show current status" -ForegroundColor White
+    Write-Host "  wmh-stats   - View productivity statistics" -ForegroundColor White
     Write-Host ""
     Write-Host "Website Management:" -ForegroundColor Yellow
-    Write-Host "  add-block-site example.com     - Add site to block list" -ForegroundColor White
-    Write-Host "  remove-block-site example.com  - Remove site from block list" -ForegroundColor White
-    Write-Host "  show-block-sites              - List all blocked sites" -ForegroundColor White
+    Write-Host "  wmh-add example.com     - Add site to block list" -ForegroundColor White
+    Write-Host "  wmh-remove example.com  - Remove site from block list" -ForegroundColor White
+    Write-Host "  wmh-list              - List all blocked sites" -ForegroundColor White
     Write-Host ""
     Write-Host "Configuration:" -ForegroundColor Yellow
     Write-Host "  Module Directory: $InstallPath" -ForegroundColor White
