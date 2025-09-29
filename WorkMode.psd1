@@ -107,7 +107,7 @@ PrivateData = @{
         Tags = @('Productivity', 'TimeTracking', 'Focus', 'WebsiteBlocking', 'SelfControl')
 
         # A URL to the license for this module.
-        LicenseUri = 'https://github.com/haikalllp/WorkMode-Hostess/blob/main/LICENSE'
+        LicenseUri = 'https://github.com/haikalllp/WorkMode-Hostess/blob/master/LICENSE'
 
         # A URL to the main website for this project.
         ProjectUri = 'https://github.com/haikalllp/WorkMode-Hostess'

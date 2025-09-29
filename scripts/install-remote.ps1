@@ -20,7 +20,7 @@
 .EXAMPLE
     .\install-workmode.ps1
 .EXAMPLE
-    irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/main/scripts/install-workmode.ps1 | iex
+    irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/master/scripts/install-remote.ps1 | iex
 #>
 
 [CmdletBinding()]
@@ -39,7 +39,7 @@ $ErrorActionPreference = "Stop"
 $ScriptName = "WorkMode Installer"
 $Version = "1.0"
 $GitHubRepo = "haikalllp/WorkMode-Hostess"
-$GitHubRawBaseUrl = "https://raw.githubusercontent.com/$GitHubRepo/main"
+$GitHubRawBaseUrl = "https://raw.githubusercontent.com/$GitHubRepo/master"
 $HostessGitHubRepo = "cbednarski/hostess"
 $HostessGitHubApiUrl = "https://api.github.com/repos/$HostessGitHubRepo/releases/latest"
 

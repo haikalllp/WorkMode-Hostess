@@ -27,7 +27,7 @@ Get-Command -Module WorkMode
 .\install-local.ps1
 
 # Test remote installation (simulate)
-irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/main/scripts/install-remote.ps1 | iex
+irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/master/scripts/install-remote.ps1 | iex
 ```
 
 ### Module Development

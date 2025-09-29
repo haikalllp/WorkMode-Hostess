@@ -16,7 +16,7 @@ A PowerShell productivity system that helps you track time and block distracting
 
 **Remote Install** - One-line install from GitHub:
 ```powershell
-irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/main/scripts/install-remote.ps1 | iex
+irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/master/scripts/install-remote.ps1 | iex
 ```
 
 **Local Install** - For users who have cloned the repository:
