@@ -873,6 +873,49 @@ function cpy { Set-Clipboard $args[0] }
 function pst { Get-Clipboard }
 #endregion
 
+#region WORKMODE INTEGRATION
+<#
+.SYNOPSIS
+    WorkMode Integration for Productivity Tracking
+.DESCRIPTION
+    Integrates WorkMode module for time tracking and website blocking
+    to help improve productivity and focus during work sessions.
+#>
+
+# Import WorkMode module if available
+$workModeModulePath = Join-Path $PSScriptRoot "WorkMode.psm1"
+if (Test-Path $workModeModulePath) {
+    try {
+        Import-Module $workModeModulePath -Force -ErrorAction Stop
+        Write-Host "WorkMode module loaded successfully!" -ForegroundColor Green
+        Write-Host "Use 'work-on' to start focus time, 'work-off' for breaks" -ForegroundColor Cyan
+    } catch {
+        Write-Warning "Failed to load WorkMode module: $($_.Exception.Message)"
+    }
+}
+
+# WorkMode prompt integration
+$script:WorkModeStatus = $null
+
+function Update-WorkModePromptStatus {
+    if (Get-Command Get-WorkModeStatus -ErrorAction SilentlyContinue) {
+        try {
+            # Try to get current session info from WorkMode module
+            $script:WorkModeStatus = Get-WorkModeStatus -ErrorAction SilentlyContinue
+        } catch {
+            $script:WorkModeStatus = $null
+        }
+    }
+}
+
+# Show WorkMode status on startup
+if (Get-Command Get-WorkModeStatus -ErrorAction SilentlyContinue) {
+    Write-Host ""
+    Get-WorkModeStatus
+    Write-Host ""
+}
+#endregion
+
 #region UI & EXPERIENCE CUSTOMIZATION
 # Admin check for prompt customization
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -881,12 +924,32 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 .SYNOPSIS
     Customizes the PowerShell prompt
 .DESCRIPTION
-    Shows current path and admin status in the PowerShell prompt
+    Shows current path, admin status, and WorkMode status in the PowerShell prompt
 .EXAMPLE
     The function is automatically called for each prompt
 #>
 function prompt {
-    if ($isAdmin) { "[" + (Get-Location) + "] # " } else { "[" + (Get-Location) + "] $ " }
+    # Update WorkMode status
+    Update-WorkModePromptStatus
+
+    # Build base prompt
+    $location = Get-Location
+    $basePrompt = "[$location]"
+
+    # Add WorkMode status if available
+    if ($script:WorkModeStatus -and $script:WorkModeStatus.Mode) {
+        $modeIcon = if ($script:WorkModeStatus.Mode -eq "Work") { "🔴" } else { "🟢" }
+        $basePrompt += " $modeIcon$($script:WorkModeStatus.Mode)"
+    }
+
+    # Add admin prompt
+    if ($isAdmin) {
+        $basePrompt += " # "
+    } else {
+        $basePrompt += " $ "
+    }
+
+    return $basePrompt
 }
 
 # Set window title with PowerShell version and admin status
@@ -1082,6 +1145,17 @@ $($PSStyle.Foreground.BrightMagenta)flushdns$($PSStyle.Reset) - Clears the DNS c
 $($PSStyle.Foreground.BrightMagenta)cpy$($PSStyle.Reset) <text> - Copies the specified text to the clipboard.
 
 $($PSStyle.Foreground.BrightMagenta)pst$($PSStyle.Reset) - Retrieves text from the clipboard.
+
+$($PSStyle.Foreground.BrightCyan)WorkMode Commands$($PSStyle.Reset)
+$($PSStyle.Foreground.Yellow)-----------------$($PSStyle.Reset)
+$($PSStyle.Foreground.BrightMagenta)work-on$($PSStyle.Reset) - Enables WorkMode (blocks distracting websites, starts work timer).
+$($PSStyle.Foreground.BrightMagenta)work-off$($PSStyle.Reset) - Disables WorkMode (unblocks websites, starts break timer).
+$($PSStyle.Foreground.BrightMagenta)work-status$($PSStyle.Reset) - Shows current WorkMode status and session information.
+$($PSStyle.Foreground.BrightMagenta)work-stats$($PSStyle.Reset) - Displays productivity statistics and time tracking insights.
+$($PSStyle.Foreground.BrightMagenta)work-history$($PSStyle.Reset) - Shows recent WorkMode session history.
+$($PSStyle.Foreground.BrightMagenta)add-block-site$($PSStyle.Reset) <domain> - Adds a website to the WorkMode block list.
+$($PSStyle.Foreground.BrightMagenta)remove-block-site$($PSStyle.Reset) <domain> - Removes a website from the WorkMode block list.
+$($PSStyle.Foreground.BrightMagenta)show-block-sites$($PSStyle.Reset) - Lists all currently blocked websites.
 
 $($PSStyle.Foreground.BrightCyan)FZF Commands$($PSStyle.Reset)
 $($PSStyle.Foreground.Yellow)------------$($PSStyle.Reset)
