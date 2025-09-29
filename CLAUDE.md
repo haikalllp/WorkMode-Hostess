@@ -11,7 +11,7 @@ WorkMode-Hostess is a PowerShell productivity system that helps users track time
 ### Testing and Verification
 ```powershell
 # Test all commands and aliases
-.\test_commands.ps1
+.\scripts\test_commands.ps1
 
 # Test WorkMode installation
 wmh-test
@@ -24,7 +24,7 @@ Get-Command -Module WorkMode
 ### Installation Testing
 ```powershell
 # Test local installation
-.\install-local.ps1
+.\scripts\install-local.ps1
 
 # Test remote installation (simulate)
 irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/master/scripts/install-remote.ps1 | iex
@@ -98,12 +98,12 @@ All commands use the `wmh-` prefix (WorkMode Hostess):
 WorkMode-Hostess/
 ├── WorkMode.psm1              # Main module - contains ALL functions
 ├── WorkMode.psd1              # Module manifest
-├── install-local.ps1          # Local installation script
-├── test_commands.ps1          # Basic verification script
+├── scripts/
+│   ├── install-local.ps1      # Local installation script
+│   ├── test_commands.ps1      # Basic verification script
+│   └── install-remote.ps1     # Remote installation script
 ├── config/
 │   └── work-sites.json        # Default website block lists
-├── scripts/
-│   └── install-remote.ps1     # Remote installation script
 └── README.md                  # User documentation
 ```
 

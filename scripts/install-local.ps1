@@ -517,11 +517,8 @@ function Test-Installation {
 function Show-InstallationSummary {
     [CmdletBinding()]
     param(
-        [Parameter()]
-        [string]$InstallPath,
-
-        [Parameter()]
-        [string]$DataPath
+        [Parameter(Mandatory=$true)]
+        [string]$InstallPath
     )
 
     Write-Host ""
@@ -529,8 +526,6 @@ function Show-InstallationSummary {
     Write-Host "=====================================" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "Installation Path: $InstallPath" -ForegroundColor White
-    Write-Host "Data Path: $DataPath" -ForegroundColor White
-    Write-Host "Log File: $LogFile" -ForegroundColor White
     Write-Host ""
     Write-Host "Quick Start Commands:" -ForegroundColor Yellow
     Write-Host "  wmh-on      - Start WorkMode (block distractions)" -ForegroundColor White
@@ -542,6 +537,14 @@ function Show-InstallationSummary {
     Write-Host "  wmh-add example.com     - Add site to block list" -ForegroundColor White
     Write-Host "  wmh-remove example.com  - Remove site from block list" -ForegroundColor White
     Write-Host "  wmh-list              - List all blocked sites" -ForegroundColor White
+    Write-Host ""
+    Write-Host "Configuration:" -ForegroundColor Yellow
+    Write-Host "  Module Directory: $InstallPath" -ForegroundColor White
+    Write-Host "  Data Directory: $env:USERPROFILE\Documents\PowerShell\WorkMode" -ForegroundColor White
+    Write-Host "  Time Tracking File: time-tracking.json" -ForegroundColor White
+    Write-Host "  Sites Configuration: work-sites.json" -ForegroundColor White
+    Write-Host ""
+    Write-Host "📝 Follow the profile integration instructions above to complete setup!" -ForegroundColor Cyan
     Write-Host ""
 }
 

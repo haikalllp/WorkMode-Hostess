@@ -12,17 +12,19 @@ A PowerShell productivity system that helps you track time and block distracting
 
 ## Installation
 
-### Quick Install (Recommended)
+### Quick Install
 
-**Remote Install** - One-line install from GitHub:
+#### **Remote Install** - One-line install from GitHub (Recommended):
 ```powershell
 irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/master/scripts/install-remote.ps1 | iex
 ```
 
-**Local Install** - For users who have cloned the repository:
+#### **Local Install** - For users who have cloned the repository:
 ```powershell
 git clone https://github.com/haikalllp/WorkMode-Hostess.git
 cd WorkMode-Hostess
+```
+```powershell
 .\scripts\install-local.ps1
 ```
 
@@ -181,15 +183,3 @@ If you encounter issues:
 ---
 
 **Remember**: WorkMode is a tool to help you understand and improve your productivity patterns. The key is consistent use and honest self-assessment! 🎯
-
-## Quick Command Reference
-
-- `wmh-help` - Show all commands and get help
-- `wmh-on` - Start WorkMode (block distractions)
-- `wmh-off` - Stop WorkMode (allow distractions)
-- `wmh-status` - Check current status
-- `wmh-stats` - View productivity statistics
-- `wmh-add site.com` - Block a website
-- `wmh-remove site.com` - Unblock a website
-- `wmh-list` - Show all blocked sites
-- `wmh-uninstall` - Remove WorkMode completely
