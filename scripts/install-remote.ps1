@@ -2,10 +2,9 @@
 
 ###############################################################################
 #                                                                             #
-#                          WorkMode Installation Script                       #
+#               WorkMode Automated Installation Script (remote)               #
 #                                                                             #
-#        Installs and configures WorkMode for productivity tracking           #
-#        and website blocking using hostess                                   #
+#        Downloads hostess from GitHub and installs WorkMode module           #
 #                                                                             #
 #                               Version 1.0                                   #
 #                                                                             #
