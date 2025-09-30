@@ -6,7 +6,7 @@ RootModule = 'WorkMode.psm1'
 ModuleVersion = '1.0.0'
 
 # Supported PSEditions
-CompatiblePSEditions = @('Desktop', 'Core')
+CompatiblePSEditions = @('Core')
 
 # ID used to uniquely identify this module
 GUID = '12345678-1234-1234-1234-123456789abc'
@@ -24,7 +24,7 @@ Copyright = '(c) 2025 haikalllp. All rights reserved.'
 Description = 'A PowerShell productivity module for time tracking and website blocking using hostess'
 
 # Minimum version of the Windows PowerShell engine required by this module
-PowerShellVersion = '5.1'
+PowerShellVersion = '7.0'
 
 # Name of the Windows PowerShell host required by this module
 # PowerShellHostName = ''

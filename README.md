@@ -14,26 +14,33 @@ See Hostess here - [Hostess](https://github.com/cbednarski/hostess).
 
 ## Installation
 
-
+> **Important**: Make sure you're running **PowerShell 7** before proceeding with installation.
+>
+> Check your version: `pwsh --version`
+>
+> Don't have PowerShell 7? See [PowerShell 7 Installation](#powershell-7-installation) below.
 
 ### **Remote Install** - One-line install from GitHub (Recommended):
 ```powershell
+# Run the installation command
 irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/master/scripts/install-remote.ps1 | iex
 ```
 
 ### **Local Install** - For users who have cloned the repository:
 ```powershell
+# Clone the repository (in PowerShell 7)
 git clone https://github.com/haikalllp/WorkMode-Hostess.git
 cd WorkMode-Hostess
-```
-Then run the installation script:
-```powershell
+
+# Run the installation script
 .\scripts\install-local.ps1
 ```
 
 ### Profile Integration
 
-⚠️ **Important**: WorkMode requires manual profile integration. Add this to your `$PROFILE`:
+⚠️ **Important**: WorkMode requires manual profile integration in your **PowerShell 7 profile**.
+
+Add this to your PowerShell 7 profile:
 
 ```powershell
 # Import WorkMode module
@@ -43,10 +50,16 @@ Import-Module "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode\WorkMode.p
 Get-WorkModeStatus
 ```
 
-To edit your profile:
+To edit your PowerShell 7 profile:
 ```powershell
+# Open PowerShell 7 profile in notepad
 notepad $PROFILE
+
+# Or if you want to edit the PowerShell 7 specific profile:
+notepad "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell7_profile.ps1"
 ```
+
+**Note**: The profile file will be created if it doesn't exist. Make sure you're editing the correct profile for PowerShell 7, not Windows PowerShell 5.1.
 
 ## Basic Usage
 
@@ -128,9 +141,43 @@ wmh-list
 
 ## Requirements
 
-- Windows PowerShell 5.1 or higher
+- **PowerShell 7.0 or higher** (Windows PowerShell 5.1 is not supported)
 - Administrator privileges (for hosts file modification)
 - Windows hosts file access
+
+### PowerShell 7 Installation
+
+If you don't have PowerShell 7 installed, you can install it using one of these methods:
+
+#### Option 1: Winget (Recommended for Windows 10/11)
+```powershell
+winget install Microsoft.PowerShell
+```
+
+#### Option 2: Download from Microsoft
+1. Visit [PowerShell GitHub Releases](https://github.com/PowerShell/PowerShell/releases)
+2. Download the latest PowerShell-7.x.x-win-x64.msi
+3. Run the installer
+
+#### Option 3: Microsoft Store
+```powershell
+# Open Microsoft Store and search for "PowerShell"
+# Or click this link:
+start ms-store://pdp/?ProductId=9mzg1dqqq0jn
+```
+
+#### Verify PowerShell 7 Installation
+```powershell
+# Check your PowerShell version
+pwsh --version
+
+# Should show 7.0.0 or higher
+```
+
+#### Start PowerShell 7
+- **Windows Terminal**: Right-click and select "PowerShell 7"
+- **Run Dialog**: Press `Win+R` and type `pwsh`
+- **Command Prompt**: Type `pwsh` and press Enter
 
 ## Troubleshooting
 
