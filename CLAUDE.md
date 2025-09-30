@@ -10,8 +10,13 @@ WorkMode-Hostess is a PowerShell productivity system that helps users track time
 
 ### Testing and Verification
 ```powershell
-# Test all commands and aliases
-.\scripts\test_commands.ps1
+# Run all tests (uses scripts/run-all-tests.ps1 which looks in scripts/tests/)
+.\scripts\run-all-tests.ps1
+
+# Or run individual tests from scripts/tests/
+.\scripts\tests\test_commands.ps1
+.\scripts\tests\test_import.ps1
+.\scripts\tests\test_syntax.ps1
 
 # Test WorkMode installation
 wmh-test
@@ -100,8 +105,12 @@ WorkMode-Hostess/
 ├── WorkMode.psd1              # Module manifest
 ├── scripts/
 │   ├── install-local.ps1      # Local installation script
-│   ├── test_commands.ps1      # Basic verification script
-│   └── install-remote.ps1     # Remote installation script
+│   ├── install-remote.ps1     # Remote installation script
+│   ├── run-all-tests.ps1      # Test runner that executes scripts/tests/*.ps1
+│   └── tests/                 # Individual test scripts
+│       ├── test_commands.ps1
+│       ├── test_import.ps1
+│       └── test_syntax.ps1
 ├── config/
 │   └── work-sites.json        # Default website block lists
 └── README.md                  # User documentation
