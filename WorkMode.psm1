@@ -501,15 +501,17 @@ function Enable-WorkSitesBlocking {
     foreach ($site in $allSites) {
         try {
             $checkResult = Invoke-HostessWithRetry -Arguments "has $site" -SuppressOutput $true
-            if ($checkResult -eq $true) {
+            if ($checkResult -is [string]) {
+                # Site exists in hosts file, try to enable it
                 $result = Invoke-HostessWithRetry -Arguments "on $site" -SuppressOutput $true
-                if ($result -eq $true) {
+                if ($result -is [string]) {
                     $blockedCount++
                 }
             } else {
+                # Site doesn't exist, try to add it
                 $addArgs = "add $site $($script:WorkModeConfig.BlockIP)"
                 $result = Invoke-HostessWithRetry -Arguments $addArgs -SuppressOutput $true
-                if ($result -eq $true) {
+                if ($result -is [string]) {
                     $blockedCount++
                 }
             }
@@ -541,7 +543,7 @@ function Disable-WorkSitesBlocking {
     foreach ($site in $allSites) {
         try {
             $result = Invoke-HostessWithRetry -Arguments "off $site" -SuppressOutput $true
-            if ($result -eq $true) {
+            if ($result -is [string]) {
                 $unblockedCount++
             }
         } catch {
@@ -591,7 +593,7 @@ function Add-WorkBlockSite {
             if (Test-Path $hostessPath) {
                 $addResult = Invoke-HostessWithRetry -Arguments "add $site $($script:WorkModeConfig.BlockIP)" -SuppressOutput $true
                 $onResult = Invoke-HostessWithRetry -Arguments "on $site" -SuppressOutput $true
-                if ($addResult -eq $true -and $onResult -eq $true) {
+                if ($addResult -is [string] -and $onResult -is [string]) {
                     Write-Host "Site blocked immediately (currently in WorkMode)" -ForegroundColor Green
                 } else {
                     Write-Warning "Failed to block site immediately"
@@ -640,7 +642,7 @@ function Remove-WorkBlockSite {
             $hostessPath = $script:WorkModeConfig.HostessPath
             if (Test-Path $hostessPath) {
                 $result = Invoke-HostessWithRetry -Arguments "off $site" -SuppressOutput $true
-                if ($result -eq $true) {
+                if ($result -is [string]) {
                     Write-Host "Site unblocked immediately (currently in WorkMode)" -ForegroundColor Green
                 } else {
                     Write-Warning "Failed to unblock site immediately"
