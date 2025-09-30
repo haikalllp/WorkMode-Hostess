@@ -12,14 +12,14 @@ A PowerShell productivity system that helps you track time and block distracting
 
 ## Installation
 
-### Quick Install
 
-#### **Remote Install** - One-line install from GitHub (Recommended):
+
+### **Remote Install** - One-line install from GitHub (Recommended):
 ```powershell
 irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/master/scripts/install-remote.ps1 | iex
 ```
 
-#### **Local Install** - For users who have cloned the repository:
+### **Local Install** - For users who have cloned the repository:
 ```powershell
 git clone https://github.com/haikalllp/WorkMode-Hostess.git
 cd WorkMode-Hostess
@@ -55,6 +55,10 @@ wmh-on
 # Take a break (unblocks websites, starts break timer)
 wmh-off
 
+# Force enable/disable (useful for debugging or recovery)
+wmh-on -Force
+wmh-off -Force
+
 # Check current status
 wmh-status
 
@@ -72,7 +76,9 @@ wmh-list
 | Command | Alias | Description |
 |---------|-------|-------------|
 | `Enable-WorkMode` | `wmh-on` | Enable WorkMode (block sites, start timer) |
+| `Enable-WorkMode -Force` | `wmh-on -Force` | Force enable WorkMode (bypass state checks for debugging) |
 | `Disable-WorkMode` | `wmh-off` | Disable WorkMode (unblock sites, start timer) |
+| `Disable-WorkMode -Force` | `wmh-off -Force` | Force disable WorkMode (bypass state checks for debugging) |
 | `Get-WorkModeStatus` | `wmh-status` | Show current mode and session info |
 | `Get-ProductivityStats` | `wmh-stats` | Show productivity statistics |
 | `Get-WorkModeHistory` | `wmh-history` | Display recent session history |
@@ -130,15 +136,51 @@ wmh-list
 - Run PowerShell as Administrator for website blocking
 - Check if your antivirus blocks hosts file modification
 
+**"Blocked 0 distracting websites" Issue**
+- This was a bug in the counting logic and has been fixed
+- If you still see this issue, use `wmh-update` to ensure you have the latest version
+- The blocking was working correctly, only the count display was affected
+
+**Corrupted Session State**
+- If WorkMode gets stuck in an inconsistent state, use the force parameter:
+  ```powershell
+  wmh-on -Force   # Force enable WorkMode
+  wmh-off -Force  # Force disable WorkMode
+  ```
+
 **Hostess Binary Issues**
 - Use `wmh-update` to download the latest binary
 - Ensure `hostess.exe` is in the module directory
+- If hostess commands fail with "invalid command", try updating the binary
 
 **Profile Integration Issues**
 - Verify you've added the integration code to your `$PROFILE`
 - Run `. $PROFILE` to reload your profile after changes
 
 ## Advanced Usage
+
+### Debugging and Recovery
+
+The `-Force` parameter is useful for debugging and recovery scenarios:
+
+```powershell
+# Force enable WorkMode (bypasses state checks)
+wmh-on -Force
+
+# Force disable WorkMode (bypasses state checks)
+wmh-off -Force
+
+# Use when:
+# - Session state becomes corrupted
+# - WorkMode gets stuck in an inconsistent state
+# - You need to bypass normal validation for debugging
+```
+
+**When to use Force parameter:**
+- When WorkMode shows incorrect current mode
+- After system crashes or unexpected shutdowns
+- When session data becomes corrupted
+- For debugging and testing purposes
 
 ### Custom Block Lists
 ```powershell

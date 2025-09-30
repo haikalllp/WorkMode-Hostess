@@ -63,6 +63,8 @@ Get-WorkModeStatus
 - **JSON Configuration**: Externalized configuration for easy modification
 - **Alias-Driven Interface**: All commands accessible via short `wmh-*` aliases
 - **PowerShell Module Structure**: Standard PowerShell module organization
+- **Force Parameter Support**: Debugging and recovery capabilities for state transitions
+- **Enhanced Error Handling**: Robust hostess command processing with proper return value checking
 
 ### Data Architecture
 - **Time Tracking**: Sessions stored in `%USERPROFILE%\Documents\PowerShell\WorkMode\time-tracking.json`
@@ -74,10 +76,11 @@ Get-WorkModeStatus
 
 ### Command Naming Convention
 All commands use the `wmh-` prefix (WorkMode Hostess):
-- `wmh-on` / `wmh-off` - Mode switching
+- `wmh-on` / `wmh-off` - Mode switching (supports `-Force` parameter)
 - `wmh-status` / `wmh-stats` - Status and analytics
 - `wmh-add` / `wmh-remove` / `wmh-list` - Website management
 - `wmh-update` / `wmh-test` / `wmh-uninstall` - System management
+- **Force Parameter**: `wmh-on -Force` and `wmh-off -Force` for debugging and recovery
 
 ### Installation Architecture
 - **Remote Installation**: One-line install from GitHub using `irm | iex`
@@ -90,6 +93,20 @@ All commands use the `wmh-` prefix (WorkMode Hostess):
 - Graceful degradation for non-critical failures
 - User-friendly color-coded error messages
 - Automatic backup creation before destructive operations
+
+### Hostess Command Return Value Handling
+- **Successful commands**: Return String objects (e.g., "Found facebook.com in...")
+- **Failed commands**: Return ErrorRecord objects (e.g., "Access is denied")
+- **Counting logic**: Uses `$result -is [string]` to distinguish success from failure
+- **Critical fix**: Changed from `$result -eq $true` (never worked) to `$result -is [string]`
+- **Functions affected**: `Enable-WorkSitesBlocking`, `Disable-WorkSitesBlocking`, `Add-WorkBlockSite`, `Remove-WorkBlockSite`
+
+### Force Parameter Implementation
+- **Purpose**: Bypass state checks for debugging and recovery scenarios
+- **Functions**: `Enable-WorkMode` and `Disable-WorkMode` support `-Force` switch
+- **Behavior**: Completes existing sessions regardless of current mode state
+- **Error handling**: Provides graceful degradation for corrupted session data
+- **Use cases**: Recovery from crashes, debugging, testing scenarios
 
 ### Security Considerations
 - Administrator privileges required for hosts file modification
@@ -136,6 +153,10 @@ WorkMode-Hostess/
 - **Self-Test Function**: Leverage built-in Test-WorkModeInstallation function
 - **Alias Verification**: Ensure all aliases are properly exported and functional
 - **Installation Testing**: Test both local and remote installation methods
+- **Force Parameter Testing**: Verify `-Force` parameter bypasses state checks correctly
+- **Hostess Command Testing**: Test return value handling for successful vs failed operations
+- **Counting Logic Verification**: Ensure website blocking counts are accurate
+- **Session Recovery Testing**: Test force parameter for corrupted session scenarios
 
 ### Installation Script Requirements
 - **Manual Profile Integration**: Never automatically modify user's `$PROFILE`
