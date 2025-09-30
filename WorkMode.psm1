@@ -462,13 +462,18 @@ function Enable-WorkSitesBlocking {
     $blockedCount = 0
     foreach ($site in $allSites) {
         try {
-            $checkResult = & $hostessPath has $site 2>$null
-            if ($LASTEXITCODE -eq 0) {
-                & $hostessPath on $site | Out-Null
-                $blockedCount++
+            $checkResult = Invoke-HostessWithRetry -Arguments "has $site" -SuppressOutput $true
+            if ($checkResult -eq $true) {
+                $result = Invoke-HostessWithRetry -Arguments "on $site" -SuppressOutput $true
+                if ($result -eq $true) {
+                    $blockedCount++
+                }
             } else {
-                & $hostessPath add $site $script:WorkModeConfig.BlockIP | Out-Null
-                $blockedCount++
+                $addArgs = "add $site $($script:WorkModeConfig.BlockIP)"
+                $result = Invoke-HostessWithRetry -Arguments $addArgs -SuppressOutput $true
+                if ($result -eq $true) {
+                    $blockedCount++
+                }
             }
         } catch {
             Write-Warning "Failed to block site $($site): $($_.Exception.Message)"
@@ -497,9 +502,12 @@ function Disable-WorkSitesBlocking {
     $unblockedCount = 0
     foreach ($site in $allSites) {
         try {
-            & $hostessPath off $site | Out-Null
-            $unblockedCount++
+            $result = Invoke-HostessWithRetry -Arguments "off $site" -SuppressOutput $true
+            if ($result -eq $true) {
+                $unblockedCount++
+            }
         } catch {
+            Write-Warning "Failed to unblock site $($site): $($_.Exception.Message)"
             continue
         }
     }
@@ -543,9 +551,13 @@ function Add-WorkBlockSite {
         try {
             $hostessPath = $script:WorkModeConfig.HostessPath
             if (Test-Path $hostessPath) {
-                & $hostessPath add $site $script:WorkModeConfig.BlockIP | Out-Null
-                & $hostessPath on $site | Out-Null
-                Write-Host "Site blocked immediately (currently in WorkMode)" -ForegroundColor Green
+                $addResult = Invoke-HostessWithRetry -Arguments "add $site $($script:WorkModeConfig.BlockIP)" -SuppressOutput $true
+                $onResult = Invoke-HostessWithRetry -Arguments "on $site" -SuppressOutput $true
+                if ($addResult -eq $true -and $onResult -eq $true) {
+                    Write-Host "Site blocked immediately (currently in WorkMode)" -ForegroundColor Green
+                } else {
+                    Write-Warning "Failed to block site immediately"
+                }
             }
         } catch {
             Write-Warning "Failed to block site immediately: $($_.Exception.Message)"
@@ -589,8 +601,12 @@ function Remove-WorkBlockSite {
         try {
             $hostessPath = $script:WorkModeConfig.HostessPath
             if (Test-Path $hostessPath) {
-                & $hostessPath off $site | Out-Null
-                Write-Host "Site unblocked immediately (currently in WorkMode)" -ForegroundColor Green
+                $result = Invoke-HostessWithRetry -Arguments "off $site" -SuppressOutput $true
+                if ($result -eq $true) {
+                    Write-Host "Site unblocked immediately (currently in WorkMode)" -ForegroundColor Green
+                } else {
+                    Write-Warning "Failed to unblock site immediately"
+                }
             }
         } catch {
             Write-Warning "Failed to unblock site immediately: $($_.Exception.Message)"
@@ -870,6 +886,72 @@ function Sync-WorkModeState {
 
         Save-CurrentSession
     }
+}
+
+function Invoke-HostessWithRetry {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Arguments,
+
+        [Parameter()]
+        [int]$MaxRetries = 3,
+
+        [Parameter()]
+        [bool]$SuppressOutput = $true
+    )
+
+    $hostessPath = $script:WorkModeConfig.HostessPath
+    if (-not (Test-Path $hostessPath)) {
+        throw "Hostess binary not found at: $hostessPath"
+    }
+
+    $attempts = 0
+    $delays = @(1, 2, 4)  # Exponential backoff: 1s, 2s, 4s
+
+    while ($attempts -lt $MaxRetries) {
+        try {
+            if ($SuppressOutput) {
+                # Suppress stderr to hide transient file lock warnings
+                $result = & $hostessPath $Arguments 2>&1 | Where-Object {
+                    $_ -notmatch "The process cannot access the file because it is being used by another process" -and
+                    $_ -notmatch "Unable to write to.*hosts" -and
+                    $_ -notmatch "error: open.*hosts"
+                }
+            } else {
+                $result = & $hostessPath $Arguments 2>&1
+            }
+
+            # Check if hostess succeeded (exit code 0) or had acceptable warnings
+            if ($LASTEXITCODE -eq 0) {
+                return $result
+            }
+
+            # Check for transient file lock errors in output
+            $transientError = $result -join "`n" | Select-String -Pattern "being used by another process|Unable to write to.*hosts"
+            if ($transientError) {
+                throw "Transient file lock detected"
+            }
+
+            # Non-transient error, don't retry
+            Write-Warning "Hostess operation failed: $($result -join '`n')"
+            return $result
+
+        } catch {
+            $attempts++
+
+            if ($attempts -ge $MaxRetries) {
+                Write-Warning "Hostess operation failed after $MaxRetries attempts: $($_.Exception.Message)"
+                return $null
+            }
+
+            $delay = $delays[$attempts - 1]
+            Write-Debug "Hostess operation failed (attempt $attempts/$MaxRetries), retrying in ${delay}s..."
+            Start-Sleep -Seconds $delay
+        }
+    }
+
+    return $null
 }
 
 function Get-TodayStats {
