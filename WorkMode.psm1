@@ -89,21 +89,40 @@ function Initialize-WorkModeData {
 function Enable-WorkMode {
     [CmdletBinding()]
     [Alias("wmh-on")]
-    param()
+    param(
+        [switch]$Force
+    )
 
     Assert-Admin
 
-    if ($script:CurrentSession.Mode -eq "Work") {
+    if ($script:CurrentSession.Mode -eq "Work" -and -not $Force) {
         Write-Host "Already in WorkMode!" -ForegroundColor Yellow
         Get-WorkModeStatus
         return
     }
 
-    Write-Host "🔴 Enabling WorkMode..." -ForegroundColor Red
+    if ($Force) {
+        Write-Host "🔴 Force enabling WorkMode..." -ForegroundColor Red
+        Write-Host "⚠️  Bypassing state checks and forcing mode transition" -ForegroundColor Yellow
+    } else {
+        Write-Host "🔴 Enabling WorkMode..." -ForegroundColor Red
+    }
 
     try {
+        # Force complete any existing session regardless of current mode
         if ($script:CurrentSession.StartTime) {
-            Complete-Session -Mode $script:CurrentSession.Mode
+            try {
+                Complete-Session -Mode $script:CurrentSession.Mode
+            } catch {
+                if ($Force) {
+                    Write-Warning "Could not complete existing session normally, forcing transition..."
+                    # Reset session state if corrupted
+                    $script:CurrentSession.StartTime = $null
+                    $script:CurrentSession.SessionId = [Guid]::NewGuid().ToString()
+                } else {
+                    throw
+                }
+            }
         }
 
         # Check for running browsers before blocking sites
@@ -155,21 +174,40 @@ function Enable-WorkMode {
 function Disable-WorkMode {
     [CmdletBinding()]
     [Alias("wmh-off")]
-    param()
+    param(
+        [switch]$Force
+    )
 
     Assert-Admin
 
-    if ($script:CurrentSession.Mode -eq "Normal") {
+    if ($script:CurrentSession.Mode -eq "Normal" -and -not $Force) {
         Write-Host "Already in NormalMode!" -ForegroundColor Yellow
         Get-WorkModeStatus
         return
     }
 
-    Write-Host "🟢 Disabling WorkMode..." -ForegroundColor Green
+    if ($Force) {
+        Write-Host "🟢 Force disabling WorkMode..." -ForegroundColor Green
+        Write-Host "⚠️  Bypassing state checks and forcing mode transition" -ForegroundColor Yellow
+    } else {
+        Write-Host "🟢 Disabling WorkMode..." -ForegroundColor Green
+    }
 
     try {
+        # Force complete any existing session regardless of current mode
         if ($script:CurrentSession.StartTime) {
-            Complete-Session -Mode $script:CurrentSession.Mode
+            try {
+                Complete-Session -Mode $script:CurrentSession.Mode
+            } catch {
+                if ($Force) {
+                    Write-Warning "Could not complete existing session normally, forcing transition..."
+                    # Reset session state if corrupted
+                    $script:CurrentSession.StartTime = $null
+                    $script:CurrentSession.SessionId = [Guid]::NewGuid().ToString()
+                } else {
+                    throw
+                }
+            }
         }
 
         Disable-WorkSitesBlocking
@@ -1327,13 +1365,13 @@ function Get-WorkModeHelp {
             Description = "Enable WorkMode (block sites, start work timer)"
             Function    = "Enable-WorkMode"
             Category    = "Core"
-            Examples    = @("wmh-on", "wmh-on -Verbose")
+            Examples    = @("wmh-on", "wmh-on -Force", "wmh-on -Verbose")
         }
         "wmh-off" = @{
             Description = "Disable WorkMode (unblock sites, start break timer)"
             Function    = "Disable-WorkMode"
             Category    = "Core"
-            Examples    = @("wmh-off", "wmh-off -Verbose")
+            Examples    = @("wmh-off", "wmh-off -Force", "wmh-off -Verbose")
         }
         "wmh-status" = @{
             Description = "Show current mode and session information"
