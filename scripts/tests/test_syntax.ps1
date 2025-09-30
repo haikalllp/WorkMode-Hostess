@@ -3,7 +3,7 @@
 # Define possible module paths to try (with labels)
 $ModulePaths = @(
     @{ Path = "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode\WorkMode.psm1"; Source = 'default user module directory' },
-    @{ Path = (Join-Path $PSScriptRoot '..' 'WorkMode.psm1'); Source = 'current project repo root' }
+    @{ Path = (Join-Path $PSScriptRoot '..' '..' 'WorkMode.psm1'); Source = 'project root (repo)' }
 )
 
 $TestSuccess = $false

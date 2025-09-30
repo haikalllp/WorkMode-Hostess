@@ -3,7 +3,7 @@ Write-Host "Testing WorkMode module commands..." -ForegroundColor Cyan
 
 try {
     # Import the module
-    Import-Module .\WorkMode.psm1 -Force -ErrorAction Stop
+    Import-Module (Join-Path $PSScriptRoot '..' '..' 'WorkMode.psm1') -Force -ErrorAction Stop
     Write-Host "✅ Module imported successfully" -ForegroundColor Green
 
     # Test all wmh- aliases
