@@ -949,15 +949,18 @@ function Invoke-HostessWithRetry {
 
     while ($attempts -lt $MaxRetries) {
         try {
+            # Split arguments into array for proper hostess command execution
+            $argArray = $Arguments -split ' '
+
             if ($SuppressOutput) {
                 # Suppress stderr to hide transient file lock warnings
-                $result = & $hostessPath $Arguments 2>&1 | Where-Object {
+                $result = & $hostessPath @argArray 2>&1 | Where-Object {
                     $_ -notmatch "The process cannot access the file because it is being used by another process" -and
                     $_ -notmatch "Unable to write to.*hosts" -and
                     $_ -notmatch "error: open.*hosts"
                 }
             } else {
-                $result = & $hostessPath $Arguments 2>&1
+                $result = & $hostessPath @argArray 2>&1
             }
 
             # Check if hostess succeeded (exit code 0) or had acceptable warnings
