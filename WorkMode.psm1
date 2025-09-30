@@ -91,6 +91,8 @@ function Enable-WorkMode {
     [Alias("wmh-on")]
     param()
 
+    Assert-Admin
+
     if ($script:CurrentSession.Mode -eq "Work") {
         Write-Host "Already in WorkMode!" -ForegroundColor Yellow
         Get-WorkModeStatus
@@ -104,11 +106,41 @@ function Enable-WorkMode {
             Complete-Session -Mode $script:CurrentSession.Mode
         }
 
+        # Check for running browsers before blocking sites
+        $runningBrowsers = Get-RunningBrowserProcesses
+        if ($runningBrowsers) {
+            $config = Get-WorkModeConfiguration
+            $choice = Show-BrowserCloseConfirmation -Processes $runningBrowsers
+
+            switch ($choice) {
+                'graceful' {
+                    $success = Close-BrowsersGracefully -Processes $runningBrowsers -ForceClose $config.ForceCloseApps
+                    if (-not $success) {
+                        Write-Warning "Some browsers could not be closed. Site blocking may not work properly."
+                        $continue = Read-Host "Continue anyway? (y/N)"
+                        if ($continue -notmatch '^[yY]$') {
+                            Write-Host "WorkMode enable cancelled." -ForegroundColor Yellow
+                            return
+                        }
+                    }
+                }
+                'skip' {
+                    Write-Host "Skipping browser close. Site blocking may not work properly." -ForegroundColor Yellow
+                }
+                'cancel' {
+                    Write-Host "WorkMode enable cancelled." -ForegroundColor Yellow
+                    return
+                }
+            }
+        }
+
         Enable-WorkSitesBlocking
 
         $script:CurrentSession.Mode = "Work"
         $script:CurrentSession.StartTime = Get-Date
         $script:CurrentSession.SessionId = [Guid]::NewGuid().ToString()
+
+        Save-CurrentSession
 
         Write-Host "✅ WorkMode enabled - Distractions blocked!" -ForegroundColor Green
         Write-Host "Focus time started at: $($script:CurrentSession.StartTime.ToString('HH:mm:ss'))" -ForegroundColor Cyan
@@ -124,6 +156,8 @@ function Disable-WorkMode {
     [CmdletBinding()]
     [Alias("wmh-off")]
     param()
+
+    Assert-Admin
 
     if ($script:CurrentSession.Mode -eq "Normal") {
         Write-Host "Already in NormalMode!" -ForegroundColor Yellow
@@ -143,6 +177,8 @@ function Disable-WorkMode {
         $script:CurrentSession.Mode = "Normal"
         $script:CurrentSession.StartTime = Get-Date
         $script:CurrentSession.SessionId = [Guid]::NewGuid().ToString()
+
+        Save-CurrentSession
 
         Write-Host "✅ NormalMode enabled - Websites accessible!" -ForegroundColor Green
         Write-Host "Break time started at: $($script:CurrentSession.StartTime.ToString('HH:mm:ss'))" -ForegroundColor Cyan
@@ -200,32 +236,75 @@ function Complete-Session {
         [string]$Mode
     )
 
-    if (-not $script:CurrentSession.StartTime) { return }
-
-    $endTime  = Get-Date
-    $duration = $endTime - $script:CurrentSession.StartTime
-
-    $sessionData = @{
-        SessionId      = $script:CurrentSession.SessionId
-        Mode           = $Mode
-        StartTime      = $script:CurrentSession.StartTime.ToString("o")
-        EndTime        = $endTime.ToString("o")
-        DurationMinutes= [Math]::Round($duration.TotalMinutes, 2)
-        DurationHours  = [Math]::Round($duration.TotalHours, 2)
-        Date           = $script:CurrentSession.StartTime.ToString("yyyy-MM-dd")
-        DayOfWeek      = $script:CurrentSession.StartTime.DayOfWeek.ToString()
+    if (-not $script:CurrentSession.StartTime) {
+        Write-Debug "Complete-Session: No active session to complete"
+        return
     }
 
-    $timeTrackingPath = Join-Path $script:WorkModeConfig.DataDir $script:WorkModeConfig.TimeTrackingFile
-    $data = Get-Content -Path $timeTrackingPath -Raw | ConvertFrom-Json
+    try {
+        $endTime  = Get-Date
+        $duration = $endTime - $script:CurrentSession.StartTime
 
-    $data.Sessions += $sessionData
-    $data.CurrentSession = $null
+        $sessionData = @{
+            SessionId      = $script:CurrentSession.SessionId
+            Mode           = $Mode
+            StartTime      = $script:CurrentSession.StartTime.ToString("o")
+            EndTime        = $endTime.ToString("o")
+            DurationMinutes= [Math]::Round($duration.TotalMinutes, 2)
+            DurationHours  = [Math]::Round($duration.TotalHours, 2)
+            Date           = $script:CurrentSession.StartTime.ToString("yyyy-MM-dd")
+            DayOfWeek      = $script:CurrentSession.StartTime.DayOfWeek.ToString()
+        }
 
-    $data | ConvertTo-Json -Depth 10 | Set-Content -Path $timeTrackingPath -Encoding UTF8
+        $timeTrackingPath = Join-Path $script:WorkModeConfig.DataDir $script:WorkModeConfig.TimeTrackingFile
 
-    $script:CurrentSession.StartTime = $null
-    $script:CurrentSession.SessionId = [Guid]::NewGuid().ToString()
+        # Ensure data file exists
+        if (-not (Test-Path $timeTrackingPath)) {
+            Initialize-WorkModeData
+        }
+
+        $data = Get-Content -Path $timeTrackingPath -Raw | ConvertFrom-Json
+
+        # Ensure Sessions array exists
+        if (-not $data.Sessions) {
+            $data.Sessions = @()
+        }
+
+        $data.Sessions += $sessionData
+        $data.CurrentSession = $null
+
+        # Atomic write with backup
+        $backupPath = "$timeTrackingPath.bak"
+        if (Test-Path $timeTrackingPath) {
+            Copy-Item -Path $timeTrackingPath -Destination $backupPath -Force
+        }
+
+        $data | ConvertTo-Json -Depth 10 | Set-Content -Path $timeTrackingPath -Encoding UTF8
+
+        # Remove backup on successful write
+        if (Test-Path $backupPath) {
+            Remove-Item -Path $backupPath -Force
+        }
+
+        Write-Debug "Complete-Session: Session saved successfully - Mode: $Mode, Duration: $($sessionData.DurationMinutes) minutes"
+
+        $script:CurrentSession.StartTime = $null
+        $script:CurrentSession.SessionId = [Guid]::NewGuid().ToString()
+
+    } catch {
+        Write-Error "Failed to complete session: $($_.Exception.Message)"
+        # Restore from backup if available
+        $backupPath = "$timeTrackingPath.bak"
+        if (Test-Path $backupPath) {
+            try {
+                Copy-Item -Path $backupPath -Destination $timeTrackingPath -Force
+                Write-Warning "Restored data from backup after save failure"
+            } catch {
+                Write-Error "Failed to restore backup: $($_.Exception.Message)"
+            }
+        }
+        throw
+    }
 }
 
 function Get-ProductivityStats {
@@ -250,16 +329,16 @@ function Get-ProductivityStats {
     $workSessions   = $data.Sessions | Where-Object { $_.Mode -eq "Work" }
     $normalSessions = $data.Sessions | Where-Object { $_.Mode -eq "Normal" }
 
-    $totalWorkHours   = ($workSessions   | Measure-Object -Property DurationHours -Sum).Sum
-    $totalNormalHours = ($normalSessions | Measure-Object -Property DurationHours -Sum).Sum
-    $totalHours       = $totalWorkHours + $totalNormalHours
+    $totalWorkMinutes   = ($workSessions   | Measure-Object -Property DurationMinutes -Sum).Sum
+    $totalNormalMinutes = ($normalSessions | Measure-Object -Property DurationMinutes -Sum).Sum
+    $totalMinutes       = $totalWorkMinutes + $totalNormalMinutes
 
-    $workPercentage = if ($totalHours -gt 0) { [Math]::Round(($totalWorkHours / $totalHours) * 100, 1) } else { 0 }
+    $workPercentage = if ($totalMinutes -gt 0) { [Math]::Round(($totalWorkMinutes / $totalMinutes) * 100, 1) } else { 0 }
 
     Write-Host "📊 Overall Statistics" -ForegroundColor White
     Write-Host "Total Sessions: $totalSessions" -ForegroundColor White
-    Write-Host "Total Work Time: $([Math]::Round($totalWorkHours, 1)) hours" -ForegroundColor Green
-    Write-Host "Total Normal Time: $([Math]::Round($totalNormalHours, 1)) hours" -ForegroundColor Yellow
+    Write-Host "Total Work Time: $(Format-Duration (New-TimeSpan -Minutes $totalWorkMinutes))" -ForegroundColor Green
+    Write-Host "Total Normal Time: $(Format-Duration (New-TimeSpan -Minutes $totalNormalMinutes))" -ForegroundColor Yellow
     Write-Host "Work Percentage: $workPercentage%" -ForegroundColor Cyan
     Write-Host ""
 
@@ -268,15 +347,15 @@ function Get-ProductivityStats {
     $todaySess  = $data.Sessions | Where-Object { $_.Date -eq $todayStr }
 
     if ($todaySess) {
-        $todayWorkHours   = ($todaySess | Where-Object { $_.Mode -eq "Work" }   | Measure-Object -Property DurationHours -Sum).Sum
-        $todayNormalHours = ($todaySess | Where-Object { $_.Mode -eq "Normal" } | Measure-Object -Property DurationHours -Sum).Sum
-        $todayWorkPct = if (($todayWorkHours + $todayNormalHours) -gt 0) {
-            [Math]::Round(($todayWorkHours / ($todayWorkHours + $todayNormalHours)) * 100, 1)
+        $todayWorkMinutes   = ($todaySess | Where-Object { $_.Mode -eq "Work" }   | Measure-Object -Property DurationMinutes -Sum).Sum
+        $todayNormalMinutes = ($todaySess | Where-Object { $_.Mode -eq "Normal" } | Measure-Object -Property DurationMinutes -Sum).Sum
+        $todayWorkPct = if (($todayWorkMinutes + $todayNormalMinutes) -gt 0) {
+            [Math]::Round(($todayWorkMinutes / ($todayWorkMinutes + $todayNormalMinutes)) * 100, 1)
         } else { 0 }
 
         Write-Host "📅 Today's Statistics ($todayStr)" -ForegroundColor White
-        Write-Host "Work Time: $([Math]::Round($todayWorkHours, 1)) hours" -ForegroundColor Green
-        Write-Host "Normal Time: $([Math]::Round($todayNormalHours, 1)) hours" -ForegroundColor Yellow
+        Write-Host "Work Time: $(Format-Duration (New-TimeSpan -Minutes $todayWorkMinutes))" -ForegroundColor Green
+        Write-Host "Normal Time: $(Format-Duration (New-TimeSpan -Minutes $todayNormalMinutes))" -ForegroundColor Yellow
         Write-Host "Work Percentage: $todayWorkPct%" -ForegroundColor Cyan
         Write-Host ""
     }
@@ -285,15 +364,15 @@ function Get-ProductivityStats {
     $weekSessions = $data.Sessions | Where-Object { [DateTime]$_.Date -ge $weekStart }
 
     if ($weekSessions) {
-        $weekWorkHours   = ($weekSessions | Where-Object { $_.Mode -eq "Work" }   | Measure-Object -Property DurationHours -Sum).Sum
-        $weekNormalHours = ($weekSessions | Where-Object { $_.Mode -eq "Normal" } | Measure-Object -Property DurationHours -Sum).Sum
-        $weekWorkPct = if (($weekWorkHours + $weekNormalHours) -gt 0) {
-            [Math]::Round(($weekWorkHours / ($weekWorkHours + $weekNormalHours)) * 100, 1)
+        $weekWorkMinutes   = ($weekSessions | Where-Object { $_.Mode -eq "Work" }   | Measure-Object -Property DurationMinutes -Sum).Sum
+        $weekNormalMinutes = ($weekSessions | Where-Object { $_.Mode -eq "Normal" } | Measure-Object -Property DurationMinutes -Sum).Sum
+        $weekWorkPct = if (($weekWorkMinutes + $weekNormalMinutes) -gt 0) {
+            [Math]::Round(($weekWorkMinutes / ($weekWorkMinutes + $weekNormalMinutes)) * 100, 1)
         } else { 0 }
 
         Write-Host "📆 This Week's Statistics" -ForegroundColor White
-        Write-Host "Work Time: $([Math]::Round($weekWorkHours, 1)) hours" -ForegroundColor Green
-        Write-Host "Normal Time: $([Math]::Round($weekNormalHours, 1)) hours" -ForegroundColor Yellow
+        Write-Host "Work Time: $(Format-Duration (New-TimeSpan -Minutes $weekWorkMinutes))" -ForegroundColor Green
+        Write-Host "Normal Time: $(Format-Duration (New-TimeSpan -Minutes $weekNormalMinutes))" -ForegroundColor Yellow
         Write-Host "Work Percentage: $weekWorkPct%" -ForegroundColor Cyan
         Write-Host ""
     }
@@ -551,6 +630,15 @@ function Get-WorkBlockSites {
 
 #region Helper Functions
 
+function Assert-Admin {
+    [CmdletBinding()]
+    param()
+
+    if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+        throw "Administrator privileges required. Re-run PowerShell as Administrator."
+    }
+}
+
 function Format-Duration {
     [CmdletBinding()]
     param(
@@ -558,22 +646,230 @@ function Format-Duration {
         [TimeSpan]$Duration
     )
 
-    $parts = @()
+    # Always show hours and minutes in "Xh Ym" format for consistency
+    $hours = [Math]::Floor($Duration.TotalHours)
+    $minutes = $duration.Minutes
 
-    if ($Duration.TotalHours -ge 1) {
-        $hours = [Math]::Floor($Duration.TotalHours)
-        $parts += "$hours" + "h"
+    if ($hours -eq 0 -and $minutes -eq 0) {
+        return "0h 0m"
     }
 
-    $minutes = $Duration.Minutes
-    if ($minutes -gt 0) { $parts += "$minutes" + "m" }
+    return "$hours" + "h " + "$minutes" + "m"
+}
 
-    $seconds = $Duration.Seconds
-    if ($seconds -gt 0 -and $Duration.TotalHours -lt 1) { $parts += "$seconds" + "s" }
+function Get-RunningBrowserProcesses {
+    [CmdletBinding()]
+    param()
 
-    if ($parts.Count -eq 0) { return "0s" }
+    $targetProcesses = @('chrome', 'msedge', 'firefox', 'brave', 'opera', 'iexplore')
+    $runningProcesses = @()
 
-    return $parts -join " "
+    foreach ($processName in $targetProcesses) {
+        try {
+            $processes = Get-Process -Name $processName -ErrorAction SilentlyContinue
+            if ($processes) {
+                $runningProcesses += $processes
+            }
+        } catch {
+            # Process not found or access denied
+        }
+    }
+
+    return $runningProcesses
+}
+
+function Show-BrowserCloseConfirmation {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Diagnostics.Process[]]$Processes
+    )
+
+    $processNames = $Processes | Select-Object -ExpandProperty ProcessName -Unique | Sort-Object
+    $processList = $processNames -join ', '
+
+    Write-Host "⚠️  Browser processes detected that may access blocked sites:" -ForegroundColor Yellow
+    Write-Host "   $processList" -ForegroundColor White
+    Write-Host ""
+    Write-Host "These processes should be closed before blocking websites to ensure proper functionality." -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Choose an option:" -ForegroundColor White
+    Write-Host "  1. Attempt to close browsers gracefully (recommended)" -ForegroundColor Green
+    Write-Host "  2. Skip and continue (may cause issues)" -ForegroundColor Yellow
+    Write-Host "  3. Cancel operation" -ForegroundColor Red
+    Write-Host ""
+
+    $response = Read-Host "Enter your choice (1/2/3)"
+
+    switch ($response) {
+        '1' { return 'graceful' }
+        '2' { return 'skip' }
+        '3' { return 'cancel' }
+        default {
+            Write-Host "Invalid choice. Please select 1, 2, or 3." -ForegroundColor Red
+            return Show-BrowserCloseConfirmation -Processes $Processes
+        }
+    }
+}
+
+function Close-BrowsersGracefully {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Diagnostics.Process[]]$Processes,
+        [Parameter()]
+        [bool]$ForceClose = $false
+    )
+
+    Write-Host "Attempting to close browsers gracefully..." -ForegroundColor Cyan
+    Write-Host "Please save any unsaved work." -ForegroundColor Yellow
+    Write-Host ""
+
+    $countdown = 10
+    for ($i = $countdown; $i -gt 0; $i--) {
+        Write-Host "`rGrace period: $i seconds remaining..." -ForegroundColor Yellow -NoNewline
+        Start-Sleep -Seconds 1
+    }
+    Write-Host "`rGrace period ended. Closing browsers..." -ForegroundColor Cyan
+
+    # Try to close gracefully
+    foreach ($process in $Processes) {
+        try {
+            $process.CloseMainWindow() | Out-Null
+        } catch {
+            Write-Warning "Failed to close $($process.ProcessName) gracefully"
+        }
+    }
+
+    # Wait a moment for processes to close
+    Start-Sleep -Seconds 3
+
+    # Check which processes are still running
+    $stillRunning = $Processes | Where-Object { -not $_.HasExited }
+
+    if ($stillRunning -and $ForceClose) {
+        Write-Host "Force-closing remaining processes..." -ForegroundColor Red
+        $stillRunning | Stop-Process -Force
+    } elseif ($stillRunning) {
+        Write-Host "Some processes could not be closed:" -ForegroundColor Yellow
+        $stillRunning | ForEach-Object { Write-Host "  - $($_.ProcessName) (PID: $($_.Id))" -ForegroundColor White }
+        return $false
+    }
+
+    Write-Host "✅ All browsers closed successfully" -ForegroundColor Green
+    return $true
+}
+
+function Get-WorkModeConfiguration {
+    [CmdletBinding()]
+    param()
+
+    Initialize-WorkModeData
+
+    $sitesConfigPath = Join-Path $script:WorkModeConfig.DataDir $script:WorkModeConfig.SitesConfigFile
+    $configData = Get-Content -Path $sitesConfigPath -Raw | ConvertFrom-Json
+
+    # Return configuration object with all settings
+    return @{
+        ForceCloseApps = if ($configData.ForceCloseApps -ne $null) { $configData.ForceCloseApps } else { $false }
+    }
+}
+
+function Save-CurrentSession {
+    [CmdletBinding()]
+    param()
+
+    if (-not $script:CurrentSession.StartTime) {
+        return
+    }
+
+    $timeTrackingPath = Join-Path $script:WorkModeConfig.DataDir $script:WorkModeConfig.TimeTrackingFile
+    $data = Get-Content -Path $timeTrackingPath -Raw | ConvertFrom-Json
+
+    # Save current session state
+    $data.CurrentSession = @{
+        Mode = $script:CurrentSession.Mode
+        StartTime = $script:CurrentSession.StartTime.ToString("o")
+        SessionId = $script:CurrentSession.SessionId
+    }
+
+    $data | ConvertTo-Json -Depth 10 | Set-Content -Path $timeTrackingPath -Encoding UTF8
+}
+
+function Restore-CurrentSession {
+    [CmdletBinding()]
+    param()
+
+    $timeTrackingPath = Join-Path $script:WorkModeConfig.DataDir $script:WorkModeConfig.TimeTrackingFile
+    if (-not (Test-Path $timeTrackingPath)) {
+        return
+    }
+
+    try {
+        $data = Get-Content -Path $timeTrackingPath -Raw | ConvertFrom-Json
+        if ($data.CurrentSession -and $data.CurrentSession.Mode -and $data.CurrentSession.StartTime) {
+            $script:CurrentSession.Mode = $data.CurrentSession.Mode
+            $script:CurrentSession.StartTime = [DateTime]::Parse($data.CurrentSession.StartTime)
+            $script:CurrentSession.SessionId = $data.CurrentSession.SessionId
+
+            Write-Host "🔄 Restored previous session: $($script:CurrentSession.Mode) (started at $($script:CurrentSession.StartTime.ToString('HH:mm:ss')))" -ForegroundColor Cyan
+        }
+    } catch {
+        # Failed to restore session, reset to normal
+        $script:CurrentSession.Mode = "Normal"
+        $script:CurrentSession.StartTime = $null
+        $script:CurrentSession.SessionId = [Guid]::NewGuid().ToString()
+    }
+}
+
+function Get-HostessCurrentMode {
+    [CmdletBinding()]
+    param()
+
+    $hostessPath = $script:WorkModeConfig.HostessPath
+    if (-not (Test-Path $hostessPath)) {
+        return "Unknown"
+    }
+
+    try {
+        $result = & $hostessPath list | Where-Object { $_ -match "workmode" }
+        if ($result) {
+            return "Work"
+        } else {
+            return "Normal"
+        }
+    } catch {
+        return "Unknown"
+    }
+}
+
+function Sync-WorkModeState {
+    [CmdletBinding()]
+    param()
+
+    $hostessMode = Get-HostessCurrentMode
+    $workmodeMode = $script:CurrentSession.Mode
+
+    if ($hostessMode -ne "Unknown" -and $hostessMode -ne $workmodeMode) {
+        Write-Host "⚠️  State inconsistency detected:" -ForegroundColor Yellow
+        Write-Host "   Hostess: $hostessMode" -ForegroundColor White
+        Write-Host "   WorkMode: $workmodeMode" -ForegroundColor White
+        Write-Host "Synchronizing with hostess state..." -ForegroundColor Cyan
+
+        if ($hostessMode -eq "Work") {
+            $script:CurrentSession.Mode = "Work"
+            $script:CurrentSession.StartTime = Get-Date
+            $script:CurrentSession.SessionId = [Guid]::NewGuid().ToString()
+            Write-Host "✅ Synchronized to WorkMode" -ForegroundColor Green
+        } else {
+            $script:CurrentSession.Mode = "Normal"
+            $script:CurrentSession.StartTime = $null
+            $script:CurrentSession.SessionId = [Guid]::NewGuid().ToString()
+            Write-Host "✅ Synchronized to NormalMode" -ForegroundColor Green
+        }
+
+        Save-CurrentSession
+    }
 }
 
 function Get-TodayStats {
@@ -587,7 +883,7 @@ function Get-TodayStats {
         return $null
     }
 
-    $today = Get-Date.ToString("yyyy-MM-dd")
+    $today = (Get-Date).ToString("yyyy-MM-dd")
     $todaySessions = $data.Sessions | Where-Object { $_.Date -eq $today }
 
     if (-not $todaySessions) {
@@ -853,6 +1149,31 @@ function Uninstall-WorkMode {
     }
 
     try {
+        # Clean up backup files created by repair operations
+        $parentDir = Split-Path $dataPath -Parent
+        $backupFiles = Get-ChildItem -Path $parentDir -Filter "*.backup_*" -ErrorAction SilentlyContinue
+
+        if ($backupFiles) {
+            Write-Host "🧹 Found $($backupFiles.Count) backup file(s) from repair operations:" -ForegroundColor Yellow
+            foreach ($file in $backupFiles) {
+                Write-Host "  • $($file.Name)" -ForegroundColor White
+            }
+
+            $response = Read-Host "Remove these backup files? (Y/n) [default: Y]"
+            if ($response -match '^[nN]$') {
+                Write-Host "Keeping backup files." -ForegroundColor Yellow
+            } else {
+                foreach ($file in $backupFiles) {
+                    try {
+                        Remove-Item -Path $file.FullName -Force -ErrorAction Stop
+                        Write-Host "✅ Removed: $($file.Name)" -ForegroundColor Green
+                    } catch {
+                        Write-Warning "Failed to remove $($file.Name): $($_.Exception.Message)"
+                    }
+                }
+            }
+        }
+
         if ($Backup -and (Test-Path $dataPath)) {
             $backupPath = "$dataPath.backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
             Copy-Item -Path $dataPath -Destination $backupPath -Recurse -Force
@@ -877,6 +1198,29 @@ function Uninstall-WorkMode {
 
         Write-Host ""
         Write-Host "🎉 WorkMode has been successfully uninstalled!" -ForegroundColor Green
+        Write-Host ""
+
+        # Offer to reload profile
+        Write-Host "Would you like to reload your PowerShell profile to remove WorkMode commands?" -ForegroundColor Yellow
+        $reloadResponse = Read-Host "Reload profile now? (Y/n) [default: Y]"
+
+        if ($reloadResponse -notmatch '^[nN]$') {
+            try {
+                $profilePath = $PROFILE
+                if (Test-Path $profilePath) {
+                    . $profilePath
+                    Write-Host "✅ Profile reloaded successfully" -ForegroundColor Green
+                } else {
+                    Write-Host "⚠️  Profile file not found: $profilePath" -ForegroundColor Yellow
+                }
+            } catch {
+                Write-Warning "Failed to reload profile: $($_.Exception.Message)"
+                Write-Host "You may need to restart PowerShell manually" -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "You may need to restart PowerShell to complete the uninstallation" -ForegroundColor Yellow
+        }
+
         Write-Host ""
         Write-Host "Note: You may want to remove WorkMode integration from your PowerShell profile:" -ForegroundColor Yellow
         Write-Host "  notepad `$PROFILE" -ForegroundColor White
@@ -1036,8 +1380,8 @@ function Get-WorkModeHelp {
             Write-Host "$('-' * ($cat.Length + 10))" -ForegroundColor Gray
 
             # Commands in this category
-            foreach ($cmdName in $catCommands.Keys | Sort-Object) {
-                $cmdInfo = $catCommands[$cmdName]
+            foreach ($cmdName in $categories[$cat].Keys | Sort-Object) {
+                $cmdInfo = $categories[$cat][$cmdName]
                 Write-Host "  $cmdName" -ForegroundColor Green
                 Write-Host "    $($cmdInfo.Description)" -ForegroundColor White
             }
@@ -1067,6 +1411,10 @@ function Get-WorkModeHelp {
 
 # Initialize data directory and configuration when module is imported
 Initialize-WorkModeData
+
+# Restore previous session state and synchronize with hostess
+Restore-CurrentSession
+Sync-WorkModeState
 
 # Export functions
 Export-ModuleMember -Function @(

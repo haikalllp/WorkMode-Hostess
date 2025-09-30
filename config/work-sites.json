@@ -38,6 +38,7 @@
     "www.epic.games.com"
   ],
   "CustomSites": [],
+  "ForceCloseApps": false,
   "Version": "1.0",
   "LastUpdated": "2025-01-01T00:00:00.000Z",
   "Categories": {

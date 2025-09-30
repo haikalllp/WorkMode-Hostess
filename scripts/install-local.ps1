@@ -651,9 +651,33 @@ function Install-WorkMode {
     }
 }
 
+# Enforce administrator privileges for installation
+function Request-AdministratorPrivileges {
+    if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+        Write-Host "🔐 WorkMode installation requires administrator privileges for hosts file modification." -ForegroundColor Yellow
+        Write-Host "Requesting elevation..." -ForegroundColor Cyan
+
+        try {
+            $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+            $startInfo.FileName = "pwsh"
+            $startInfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+            $startInfo.Verb = "RunAs"
+            $startInfo.UseShellExecute = $true
+
+            [System.Diagnostics.Process]::Start($startInfo) | Out-Null
+            exit
+        } catch {
+            Write-Error "Failed to elevate privileges. Installation requires administrator rights."
+            Write-Host "Please run PowerShell as Administrator and try again." -ForegroundColor Red
+            exit 1
+        }
+    }
+}
+
 # Run installation if called directly
 if ($MyInvocation.InvocationName -ne '.') {
     try {
+        Request-AdministratorPrivileges
         Install-WorkMode
     } catch {
         Write-Host "Installation failed: $($_.Exception.Message)" -ForegroundColor Red
