@@ -2,6 +2,8 @@
 
 A PowerShell productivity system that helps you track time and block distracting websites during work sessions using the hostess utility.
 
+See Hostess here - [Hostess](https://github.com/cbednarski/hostess).
+
 ## Features
 
 - **Manual Mode Switching**: Toggle between WorkMode and NormalMode
