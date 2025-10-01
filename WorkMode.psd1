@@ -84,6 +84,7 @@ AliasesToExport = @(
     'work-status',
     'work-stats',
     'work-history',
+    'work-clear',
     'add-block-site',
     'remove-block-site',
     'show-block-sites'

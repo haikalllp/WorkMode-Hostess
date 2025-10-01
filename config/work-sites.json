@@ -1,5 +1,5 @@
 {
-  "BlockSites": [
+  "AllSites": [
     "facebook.com",
     "www.facebook.com",
     "fb.com",
@@ -34,13 +34,9 @@
     "www.discord.com",
     "steam.com",
     "www.steam.com",
-    "epic.games.com",
-    "www.epic.games.com"
+    "epicgames.com",
+    "www.epicgames.com"
   ],
-  "CustomSites": [],
-  "ForceCloseApps": false,
-  "Version": "1.0",
-  "LastUpdated": "2025-01-01T00:00:00.000Z",
   "Categories": {
     "SocialMedia": [
       "facebook.com",
@@ -76,8 +72,8 @@
     "Gaming": [
       "steam.com",
       "www.steam.com",
-      "epic.games.com",
-      "www.epic.games.com",
+      "epicgames.com",
+      "www.epicgames.com",
       "discord.com",
       "www.discord.com"
     ],
@@ -85,6 +81,15 @@
       "reddit.com",
       "www.reddit.com",
       "old.reddit.com"
-    ]
-  }
+    ],
+    "Custom": []
+  },
+  "DistractingApps": {
+    "ProcessNames": ["discord", "steam", "EpicGamesLauncher"],
+    "ForceClose": false,
+    "WarningMessage": "Closing distracting apps to improve focus..."
+  },
+  "ForceCloseApps": false,
+  "Version": "2.0",
+  "LastUpdated": "2025-01-01T00:00:00.000Z"
 }

@@ -74,11 +74,160 @@ function Initialize-WorkModeData {
     # Initialize sites configuration if it doesn't exist
     if (-not (Test-Path $sitesConfigPath)) {
         @{
-            BlockSites  = $script:DefaultBlockSites
-            CustomSites = @()
-            Version     = "1.0"
+            AllSites = $script:DefaultBlockSites
+            Categories = @{
+                SocialMedia = @(
+                    "facebook.com", "www.facebook.com", "fb.com",
+                    "twitter.com", "www.twitter.com", "x.com",
+                    "instagram.com", "www.instagram.com",
+                    "tiktok.com", "www.tiktok.com",
+                    "snapchat.com", "www.snapchat.com",
+                    "linkedin.com", "www.linkedin.com",
+                    "pinterest.com", "www.pinterest.com",
+                    "tumblr.com", "www.tumblr.com"
+                )
+                Entertainment = @(
+                    "youtube.com", "www.youtube.com", "youtu.be",
+                    "netflix.com", "www.netflix.com",
+                    "twitch.tv", "www.twitch.tv",
+                    "imgur.com", "www.imgur.com"
+                )
+                Gaming = @(
+                    "steam.com", "www.steam.com",
+                    "epicgames.com", "www.epicgames.com",
+                    "discord.com", "www.discord.com"
+                )
+                Forums = @(
+                    "reddit.com", "www.reddit.com", "old.reddit.com"
+                )
+                Custom = @()  # User-added sites
+            }
+            DistractingApps = @{
+                ProcessNames = @("discord", "steam", "EpicGamesLauncher")
+                ForceClose = $false
+                WarningMessage = "Closing distracting apps to improve focus..."
+            }
+            ForceCloseApps = $false
+            Version = "2.0"
             LastUpdated = (Get-Date).ToString("o")
         } | ConvertTo-Json -Depth 10 | Set-Content -Path $sitesConfigPath -Encoding UTF8
+    } else {
+        # Check if migration is needed
+        try {
+            $sitesData = Get-Content -Path $sitesConfigPath -Raw | ConvertFrom-Json
+            
+            # If this is the old format (no AllSites property), migrate to new format
+            if (-not $sitesData.AllSites) {
+                Write-Host "🔄 Detected old configuration format. Migrating to new unified format..." -ForegroundColor Yellow
+                
+                # Perform migration
+                $migrationSuccess = Migrate-WorkModeConfiguration -SitesConfigPath $sitesConfigPath -SitesData $sitesData
+                
+                if ($migrationSuccess) {
+                    Write-Host "✅ Configuration migrated successfully to new unified format." -ForegroundColor Green
+                } else {
+                    Write-Warning "Configuration migration failed. Please check your configuration manually."
+                }
+            }
+        } catch {
+            Write-Warning "Failed to check configuration format: $($_.Exception.Message)"
+        }
+    }
+}
+
+function Migrate-WorkModeConfiguration {
+    [CmdletBinding(SupportsShouldProcess=$true)]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$SitesConfigPath,
+        
+        [Parameter(Mandatory=$true)]
+        [object]$SitesData
+    )
+    
+    try {
+        # Create backup of existing configuration
+        $backupPath = "$SitesConfigPath.backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+        Copy-Item -Path $SitesConfigPath -Destination $backupPath -Force
+        Write-Debug "Created backup at: $backupPath"
+        
+        # Create new unified structure
+        $newConfig = @{
+            AllSites = @()
+            Categories = @{
+                SocialMedia = @(
+                    "facebook.com", "www.facebook.com", "fb.com",
+                    "twitter.com", "www.twitter.com", "x.com",
+                    "instagram.com", "www.instagram.com",
+                    "tiktok.com", "www.tiktok.com",
+                    "snapchat.com", "www.snapchat.com",
+                    "linkedin.com", "www.linkedin.com",
+                    "pinterest.com", "www.pinterest.com",
+                    "tumblr.com", "www.tumblr.com"
+                )
+                Entertainment = @(
+                    "youtube.com", "www.youtube.com", "youtu.be",
+                    "netflix.com", "www.netflix.com",
+                    "twitch.tv", "www.twitch.tv",
+                    "imgur.com", "www.imgur.com"
+                )
+                Gaming = @(
+                    "steam.com", "www.steam.com",
+                    "epicgames.com", "www.epicgames.com",
+                    "discord.com", "www.discord.com"
+                )
+                Forums = @(
+                    "reddit.com", "www.reddit.com", "old.reddit.com"
+                )
+                Custom = @()  # User-added sites
+            }
+            DistractingApps = @{
+                ProcessNames = @("discord", "steam", "EpicGamesLauncher")
+                ForceClose = $false
+                WarningMessage = "Closing distracting apps to improve focus..."
+            }
+            ForceCloseApps = if ($SitesData.ForceCloseApps -ne $null) { $SitesData.ForceCloseApps } else { $false }
+            Version = "2.0"
+            LastUpdated = (Get-Date).ToString("o")
+            MigrationInfo = @{
+                MigratedFrom = $SitesData.Version
+                MigrationDate = (Get-Date).ToString("o")
+                BackupPath = $backupPath
+            }
+        }
+        
+        # Add default sites to AllSites
+        $newConfig.AllSites = $script:DefaultBlockSites
+        
+        # Add user's custom sites to AllSites and Custom category
+        if ($SitesData.CustomSites -and $SitesData.CustomSites.Count -gt 0) {
+            foreach ($site in $SitesData.CustomSites) {
+                # Only add if not already in default list
+                if ($site -notin $newConfig.AllSites) {
+                    $newConfig.AllSites += $site
+                    $newConfig.Categories.Custom += $site
+                }
+            }
+        }
+        
+        # Write new configuration
+        $newConfig | ConvertTo-Json -Depth 10 | Set-Content -Path $SitesConfigPath -Encoding UTF8
+        
+        return $true
+    } catch {
+        Write-Error "Migration failed: $($_.Exception.Message)"
+        
+        # Try to restore from backup if migration failed
+        if ($backupPath -and (Test-Path $backupPath)) {
+            try {
+                Copy-Item -Path $backupPath -Destination $SitesConfigPath -Force
+                Write-Host "Restored original configuration from backup." -ForegroundColor Yellow
+            } catch {
+                Write-Error "Failed to restore backup: $($_.Exception.Message)"
+            }
+        }
+        
+        return $false
     }
 }
 
@@ -149,6 +298,53 @@ function Enable-WorkMode {
                 'cancel' {
                     Write-Host "WorkMode enable cancelled." -ForegroundColor Yellow
                     return
+                }
+            }
+        }
+
+        # Check for running distracting apps before blocking sites
+        $runningDistractingApps = Get-RunningDistractingApps
+        if ($runningDistractingApps) {
+            $config = Get-WorkModeConfiguration
+            $appNames = $runningDistractingApps | Select-Object -ExpandProperty ProcessName -Unique | Sort-Object
+            $appList = $appNames -join ', '
+
+            Write-Host "⚠️  Distracting applications detected:" -ForegroundColor Yellow
+            Write-Host "   $appList" -ForegroundColor White
+            Write-Host ""
+            Write-Host $config.DistractingApps.WarningMessage -ForegroundColor Cyan
+            Write-Host ""
+            Write-Host "Choose an option:" -ForegroundColor White
+            Write-Host "  1. Attempt to close apps gracefully (recommended)" -ForegroundColor Green
+            Write-Host "  2. Skip and continue (may cause issues)" -ForegroundColor Yellow
+            Write-Host "  3. Cancel operation" -ForegroundColor Red
+            Write-Host ""
+
+            $response = Read-Host "Enter your choice (1/2/3)"
+
+            switch ($response) {
+                '1' {
+                    $success = Close-DistractingApps -Processes $runningDistractingApps -ForceClose $config.DistractingApps.ForceClose
+                    if (-not $success) {
+                        Write-Warning "Some distracting apps could not be closed."
+                        $continue = Read-Host "Continue anyway? (y/N)"
+                        if ($continue -notmatch '^[yY]$') {
+                            Write-Host "WorkMode enable cancelled." -ForegroundColor Yellow
+                            return
+                        }
+                    }
+                }
+                '2' {
+                    Write-Host "Skipping distracting app close. These apps may still distract you." -ForegroundColor Yellow
+                }
+                '3' {
+                    Write-Host "WorkMode enable cancelled." -ForegroundColor Yellow
+                    return
+                }
+                default {
+                    Write-Host "Invalid choice. Please select 1, 2, or 3." -ForegroundColor Red
+                    # Re-prompt by continuing the loop
+                    continue
                 }
             }
         }
@@ -244,7 +440,7 @@ function Get-WorkModeStatus {
 
     if ($script:CurrentSession.StartTime) {
         $duration   = (Get-Date) - $script:CurrentSession.StartTime
-        $durationStr = Format-Duration $duration
+        $durationStr = Format-Duration -Duration $duration
         Write-Host "Session Started: $($script:CurrentSession.StartTime.ToString('HH:mm:ss'))" -ForegroundColor White
         Write-Host "Session Duration: $durationStr" -ForegroundColor White
     } else {
@@ -375,8 +571,8 @@ function Get-ProductivityStats {
 
     Write-Host "📊 Overall Statistics" -ForegroundColor White
     Write-Host "Total Sessions: $totalSessions" -ForegroundColor White
-    Write-Host "Total Work Time: $(Format-Duration (New-TimeSpan -Minutes $totalWorkMinutes))" -ForegroundColor Green
-    Write-Host "Total Normal Time: $(Format-Duration (New-TimeSpan -Minutes $totalNormalMinutes))" -ForegroundColor Yellow
+    Write-Host "Total Work Time: $(Format-Duration -Duration (New-TimeSpan -Minutes $totalWorkMinutes))" -ForegroundColor Green
+    Write-Host "Total Normal Time: $(Format-Duration -Duration (New-TimeSpan -Minutes $totalNormalMinutes))" -ForegroundColor Yellow
     Write-Host "Work Percentage: $workPercentage%" -ForegroundColor Cyan
     Write-Host ""
 
@@ -392,8 +588,8 @@ function Get-ProductivityStats {
         } else { 0 }
 
         Write-Host "📅 Today's Statistics ($todayStr)" -ForegroundColor White
-        Write-Host "Work Time: $(Format-Duration (New-TimeSpan -Minutes $todayWorkMinutes))" -ForegroundColor Green
-        Write-Host "Normal Time: $(Format-Duration (New-TimeSpan -Minutes $todayNormalMinutes))" -ForegroundColor Yellow
+        Write-Host "Work Time: $(Format-Duration -Duration (New-TimeSpan -Minutes $todayWorkMinutes))" -ForegroundColor Green
+        Write-Host "Normal Time: $(Format-Duration -Duration (New-TimeSpan -Minutes $todayNormalMinutes))" -ForegroundColor Yellow
         Write-Host "Work Percentage: $todayWorkPct%" -ForegroundColor Cyan
         Write-Host ""
     }
@@ -409,15 +605,15 @@ function Get-ProductivityStats {
         } else { 0 }
 
         Write-Host "📆 This Week's Statistics" -ForegroundColor White
-        Write-Host "Work Time: $(Format-Duration (New-TimeSpan -Minutes $weekWorkMinutes))" -ForegroundColor Green
-        Write-Host "Normal Time: $(Format-Duration (New-TimeSpan -Minutes $weekNormalMinutes))" -ForegroundColor Yellow
+        Write-Host "Work Time: $(Format-Duration -Duration (New-TimeSpan -Minutes $weekWorkMinutes))" -ForegroundColor Green
+        Write-Host "Normal Time: $(Format-Duration -Duration (New-TimeSpan -Minutes $weekNormalMinutes))" -ForegroundColor Yellow
         Write-Host "Work Percentage: $weekWorkPct%" -ForegroundColor Cyan
         Write-Host ""
     }
 
     if ($script:CurrentSession.StartTime) {
         $currentDuration   = (Get-Date) - $script:CurrentSession.StartTime
-        $currentDurationStr = Format-Duration $currentDuration
+        $currentDurationStr = Format-Duration -Duration $currentDuration
         Write-Host "⏱️  Current Session" -ForegroundColor White
         Write-Host "Mode: $($script:CurrentSession.Mode)" -ForegroundColor $(if ($script:CurrentSession.Mode -eq "Work") { "Green" } else { "Yellow" })
         Write-Host "Duration: $currentDurationStr" -ForegroundColor White
@@ -471,9 +667,82 @@ function Get-WorkModeHistory {
         $modeIcon  = if ($isWork) { "🔴" } else { "🟢" }
         $modeColor = if ($isWork) { "Green" } else { "Yellow" }
 
+        # Use new Format-Duration function for enhanced time display
+        $duration = New-TimeSpan -Minutes $session.DurationMinutes
+        $durationStr = Format-Duration -Duration $duration
+
         Write-Host "$modeIcon $($startTime.ToString('yyyy-MM-dd HH:mm:ss'))" -ForegroundColor $modeColor -NoNewline
         Write-Host " - $($session.Mode)" -ForegroundColor White -NoNewline
-        Write-Host " - $($session.DurationHours.ToString('0.0'))h" -ForegroundColor Cyan
+        Write-Host " - $durationStr" -ForegroundColor Cyan
+    }
+}
+
+function Clear-WorkModeStats {
+    [Alias("wmh-clear")]
+    [CmdletBinding(SupportsShouldProcess=$true)]
+    param()
+
+    Initialize-WorkModeData
+
+    Write-Warning "This will permanently delete all your WorkMode session history and statistics."
+    Write-Warning "This action cannot be undone."
+    Write-Host ""
+    Write-Host "The following data will be deleted:" -ForegroundColor Red
+    Write-Host "  • All session history" -ForegroundColor White
+    Write-Host "  • Productivity statistics" -ForegroundColor White
+    Write-Host "  • Time tracking records" -ForegroundColor White
+    Write-Host ""
+
+    $continue = Read-Host "Are you sure you want to continue? (y/N)"
+
+    if ($continue -match '^[yY]$') {
+        try {
+            $timeTrackingPath = Join-Path $script:WorkModeConfig.DataDir $script:WorkModeConfig.TimeTrackingFile
+            
+            # Create backup before clearing
+            $backupPath = "$timeTrackingPath.backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+            if (Test-Path $timeTrackingPath) {
+                Copy-Item -Path $timeTrackingPath -Destination $backupPath -Force
+                Write-Host "✅ Backup created at: $backupPath" -ForegroundColor Green
+            }
+
+            # Clear the data while preserving structure
+            $clearedData = @{
+                Sessions = @()
+                CurrentSession = $null
+                Version = "1.0"
+                ClearedOn = (Get-Date).ToString("o")
+                PreviousBackup = $backupPath
+            }
+
+            # Write cleared data
+            $clearedData | ConvertTo-Json -Depth 10 | Set-Content -Path $timeTrackingPath -Encoding UTF8
+
+            # Reset current session in memory
+            $script:CurrentSession.StartTime = $null
+            $script:CurrentSession.SessionId = [Guid]::NewGuid().ToString()
+            $script:CurrentSession.Mode = "Normal"
+
+            Write-Host "✅ Statistics cleared successfully" -ForegroundColor Green
+            Write-Host "All session history and statistics have been deleted." -ForegroundColor White
+            Write-Host "You can start fresh with 'wmh-on' to begin tracking new sessions." -ForegroundColor Cyan
+
+        } catch {
+            Write-Error "Failed to clear statistics: $($_.Exception.Message)"
+            
+            # Attempt to restore from backup if something went wrong
+            if ($backupPath -and (Test-Path $backupPath)) {
+                try {
+                    Copy-Item -Path $backupPath -Destination $timeTrackingPath -Force
+                    Write-Host "Restored original data from backup." -ForegroundColor Yellow
+                } catch {
+                    Write-Error "Failed to restore backup: $($_.Exception.Message)"
+                }
+            }
+            throw
+        }
+    } else {
+        Write-Host "Operation cancelled. No data was deleted." -ForegroundColor Yellow
     }
 }
 
@@ -490,7 +759,8 @@ function Enable-WorkSitesBlocking {
     $sitesConfigPath = Join-Path $script:WorkModeConfig.DataDir $script:WorkModeConfig.SitesConfigFile
     $sitesData = Get-Content -Path $sitesConfigPath -Raw | ConvertFrom-Json
 
-    $allSites = $sitesData.BlockSites + $sitesData.CustomSites
+    # Use unified AllSites array instead of separate BlockSites and CustomSites
+    $allSites = $sitesData.AllSites
     $hostessPath = $script:WorkModeConfig.HostessPath
 
     if (-not (Test-Path $hostessPath)) {
@@ -532,7 +802,8 @@ function Disable-WorkSitesBlocking {
     $sitesConfigPath = Join-Path $script:WorkModeConfig.DataDir $script:WorkModeConfig.SitesConfigFile
     $sitesData = Get-Content -Path $sitesConfigPath -Raw | ConvertFrom-Json
 
-    $allSites = $sitesData.BlockSites + $sitesData.CustomSites
+    # Use unified AllSites array instead of separate BlockSites and CustomSites
+    $allSites = $sitesData.AllSites
     $hostessPath = $script:WorkModeConfig.HostessPath
 
     if (-not (Test-Path $hostessPath)) {
@@ -574,17 +845,37 @@ function Add-WorkBlockSite {
     $sitesConfigPath = Join-Path $script:WorkModeConfig.DataDir $script:WorkModeConfig.SitesConfigFile
     $sitesData = Get-Content -Path $sitesConfigPath -Raw | ConvertFrom-Json
 
-    if ($site -in $sitesData.BlockSites -or $site -in $sitesData.CustomSites) {
-        Write-Host "Site '$site' is already in the block list." -ForegroundColor Yellow
-        return
+    # Check if this is the new unified format or old format
+    if ($sitesData.AllSites) {
+        # New unified format
+        if ($site -in $sitesData.AllSites) {
+            Write-Host "Site '$site' is already in the block list." -ForegroundColor Yellow
+            return
+        }
+
+        # Add to AllSites array
+        $sitesData.AllSites += $site
+        
+        # Add to Custom category
+        $sitesData.Categories.Custom += $site
+        
+        $sitesData.LastUpdated = (Get-Date).ToString("o")
+        
+        Write-Host "✅ Added '$site' to block list (Custom category)" -ForegroundColor Green
+    } else {
+        # Old format - maintain backward compatibility
+        if ($site -in $sitesData.BlockSites -or $site -in $sitesData.CustomSites) {
+            Write-Host "Site '$site' is already in the block list." -ForegroundColor Yellow
+            return
+        }
+
+        $sitesData.CustomSites += $site
+        $sitesData.LastUpdated = (Get-Date).ToString("o")
+        
+        Write-Host "✅ Added '$site' to block list" -ForegroundColor Green
     }
 
-    $sitesData.CustomSites += $site
-    $sitesData.LastUpdated = (Get-Date).ToString("o")
-
     $sitesData | ConvertTo-Json -Depth 10 | Set-Content -Path $sitesConfigPath -Encoding UTF8
-
-    Write-Host "✅ Added '$site' to block list" -ForegroundColor Green
     Write-Host "The site will be blocked when WorkMode is enabled." -ForegroundColor Cyan
 
     if ($script:CurrentSession.Mode -eq "Work") {
@@ -620,22 +911,56 @@ function Remove-WorkBlockSite {
     $sitesConfigPath = Join-Path $script:WorkModeConfig.DataDir $script:WorkModeConfig.SitesConfigFile
     $sitesData = Get-Content -Path $sitesConfigPath -Raw | ConvertFrom-Json
 
-    if ($site -in $sitesData.BlockSites) {
-        Write-Host "Cannot remove '$site' - it's in the default block list." -ForegroundColor Red
-        return
-    }
+    # Check if this is the new unified format or old format
+    if ($sitesData.AllSites) {
+        # New unified format
+        if ($site -notin $sitesData.AllSites) {
+            Write-Host "Site '$site' is not in the block list." -ForegroundColor Yellow
+            return
+        }
 
-    if ($site -notin $sitesData.CustomSites) {
-        Write-Host "Site '$site' is not in the custom block list." -ForegroundColor Yellow
-        return
-    }
+        # Check if site is in a non-custom category (can't remove default sites)
+        $foundInCategory = $null
+        foreach ($category in $sitesData.Categories.PSObject.Properties) {
+            if ($site -in $category.Value) {
+                $foundInCategory = $category.Name
+                break
+            }
+        }
 
-    $sitesData.CustomSites = $sitesData.CustomSites | Where-Object { $_ -ne $site }
-    $sitesData.LastUpdated = (Get-Date).ToString("o")
+        if ($foundInCategory -ne "Custom") {
+            Write-Host "Cannot remove '$site' - it's in the default '$foundInCategory' block list." -ForegroundColor Red
+            return
+        }
+
+        # Remove from AllSites array
+        $sitesData.AllSites = $sitesData.AllSites | Where-Object { $_ -ne $site }
+        
+        # Remove from Custom category
+        $sitesData.Categories.Custom = $sitesData.Categories.Custom | Where-Object { $_ -ne $site }
+        
+        $sitesData.LastUpdated = (Get-Date).ToString("o")
+        
+        Write-Host "✅ Removed '$site' from block list (Custom category)" -ForegroundColor Green
+    } else {
+        # Old format - maintain backward compatibility
+        if ($site -in $sitesData.BlockSites) {
+            Write-Host "Cannot remove '$site' - it's in the default block list." -ForegroundColor Red
+            return
+        }
+
+        if ($site -notin $sitesData.CustomSites) {
+            Write-Host "Site '$site' is not in the custom block list." -ForegroundColor Yellow
+            return
+        }
+
+        $sitesData.CustomSites = $sitesData.CustomSites | Where-Object { $_ -ne $site }
+        $sitesData.LastUpdated = (Get-Date).ToString("o")
+        
+        Write-Host "✅ Removed '$site' from block list" -ForegroundColor Green
+    }
 
     $sitesData | ConvertTo-Json -Depth 10 | Set-Content -Path $sitesConfigPath -Encoding UTF8
-
-    Write-Host "✅ Removed '$site' from block list" -ForegroundColor Green
 
     if ($script:CurrentSession.Mode -eq "Work") {
         try {
@@ -667,19 +992,49 @@ function Get-WorkBlockSites {
     Write-Host "=== WorkMode Block List ===" -ForegroundColor Cyan
     Write-Host ""
 
-    Write-Host "Default Sites ($($sitesData.BlockSites.Count)):" -ForegroundColor White
-    foreach ($site in $sitesData.BlockSites) {
-        Write-Host "  • $site" -ForegroundColor Gray
-    }
+    # Check if this is the new unified format or old format
+    if ($sitesData.AllSites) {
+        # New unified format - display by categories
+        Write-Host "Total Sites: $($sitesData.AllSites.Count)" -ForegroundColor Cyan
+        Write-Host ""
 
-    Write-Host ""
-    Write-Host "Custom Sites ($($sitesData.CustomSites.Count)):" -ForegroundColor White
-    foreach ($site in $sitesData.CustomSites) {
-        Write-Host "  • $site" -ForegroundColor Magenta
-    }
+        foreach ($category in $sitesData.Categories.PSObject.Properties) {
+            $categoryName = $category.Name
+            $sites = $category.Value
+            
+            if ($sites.Count -gt 0) {
+                $color = switch ($categoryName) {
+                    "SocialMedia" { "Yellow" }
+                    "Entertainment" { "Cyan" }
+                    "Gaming" { "Magenta" }
+                    "Forums" { "Green" }
+                    "Custom" { "Red" }
+                    default { "White" }
+                }
+                
+                Write-Host "$categoryName ($($sites.Count)):" -ForegroundColor $color
+                foreach ($site in $sites) {
+                    Write-Host "  • $site" -ForegroundColor Gray
+                }
+                Write-Host ""
+            }
+        }
+    } else {
+        # Old format - display as before for backward compatibility
+        Write-Host "Default Sites ($($sitesData.BlockSites.Count)):" -ForegroundColor White
+        foreach ($site in $sitesData.BlockSites) {
+            Write-Host "  • $site" -ForegroundColor Gray
+        }
 
-    Write-Host ""
-    Write-Host "Total: $($sitesData.BlockSites.Count + $sitesData.CustomSites.Count) sites" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "Custom Sites ($($sitesData.CustomSites.Count)):" -ForegroundColor White
+        foreach ($site in $sitesData.CustomSites) {
+            Write-Host "  • $site" -ForegroundColor Magenta
+        }
+
+        Write-Host ""
+        Write-Host "Total: $($sitesData.BlockSites.Count + $sitesData.CustomSites.Count) sites" -ForegroundColor Cyan
+    }
 }
 
 #endregion
@@ -698,19 +1053,33 @@ function Assert-Admin {
 function Format-Duration {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
-        [TimeSpan]$Duration
+        [Parameter(Mandatory=$false)]
+        [TimeSpan]$Duration = [TimeSpan]::Zero
     )
 
-    # Always show hours and minutes in "Xh Ym" format for consistency
-    $hours = [Math]::Floor($Duration.TotalHours)
-    $minutes = $duration.Minutes
-
-    if ($hours -eq 0 -and $minutes -eq 0) {
-        return "0h 0m"
+    # Handle null or invalid duration values
+    if ($null -eq $Duration -or $Duration.TotalSeconds -lt 0) {
+        return "0h 0m 0s"
     }
 
-    return "$hours" + "h " + "$minutes" + "m"
+    # Extract hours, minutes, and seconds for enhanced time display
+    $hours = [Math]::Floor($Duration.TotalHours)
+    $minutes = $duration.Minutes
+    $seconds = $duration.Seconds
+
+    # Handle zero duration case
+    if ($hours -eq 0 -and $minutes -eq 0 -and $seconds -eq 0) {
+        return "0h 0m 0s"
+    }
+
+    # Build time components array
+    $parts = @()
+    if ($hours -gt 0) { $parts += "$hours" + "h" }
+    if ($minutes -gt 0) { $parts += "$minutes" + "m" }
+    if ($seconds -gt 0) { $parts += "$seconds" + "s" }
+
+    # Join components with spaces, default to "0h 0m 0s" if no parts
+    return if ($parts.Count -gt 0) { $parts -join " " } else { "0h 0m 0s" }
 }
 
 function Get-RunningBrowserProcesses {
@@ -721,6 +1090,29 @@ function Get-RunningBrowserProcesses {
     $runningProcesses = @()
 
     foreach ($processName in $targetProcesses) {
+        try {
+            $processes = Get-Process -Name $processName -ErrorAction SilentlyContinue
+            if ($processes) {
+                $runningProcesses += $processes
+            }
+        } catch {
+            # Process not found or access denied
+        }
+    }
+
+    return $runningProcesses
+}
+
+function Get-RunningDistractingApps {
+    [CmdletBinding()]
+    param()
+
+    # Get the list of distracting apps from configuration
+    $config = Get-WorkModeConfiguration
+    $targetApps = $config.DistractingApps.ProcessNames
+    $runningProcesses = @()
+
+    foreach ($processName in $targetApps) {
         try {
             $processes = Get-Process -Name $processName -ErrorAction SilentlyContinue
             if ($processes) {
@@ -816,6 +1208,58 @@ function Close-BrowsersGracefully {
     return $true
 }
 
+function Close-DistractingApps {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Diagnostics.Process[]]$Processes,
+        [Parameter()]
+        [bool]$ForceClose = $false
+    )
+
+    $config = Get-WorkModeConfiguration
+    $warningMessage = $config.DistractingApps.WarningMessage
+    
+    Write-Host $warningMessage -ForegroundColor Cyan
+    Write-Host "Please save any unsaved work in these applications." -ForegroundColor Yellow
+    Write-Host ""
+
+    $countdown = 5
+    for ($i = $countdown; $i -gt 0; $i--) {
+        Write-Host "`rGrace period: $i seconds remaining..." -ForegroundColor Yellow -NoNewline
+        Start-Sleep -Seconds 1
+    }
+    Write-Host "`rGrace period ended. Closing distracting apps..." -ForegroundColor Cyan
+
+    # Try to close gracefully
+    foreach ($process in $Processes) {
+        try {
+            $process.CloseMainWindow() | Out-Null
+            Write-Host "Sent close signal to $($process.ProcessName) (PID: $($process.Id))" -ForegroundColor Gray
+        } catch {
+            Write-Warning "Failed to close $($process.ProcessName) gracefully"
+        }
+    }
+
+    # Wait a moment for processes to close
+    Start-Sleep -Seconds 3
+
+    # Check which processes are still running
+    $stillRunning = $Processes | Where-Object { -not $_.HasExited }
+
+    if ($stillRunning -and $ForceClose) {
+        Write-Host "Force-closing remaining processes..." -ForegroundColor Red
+        $stillRunning | Stop-Process -Force
+    } elseif ($stillRunning) {
+        Write-Host "Some processes could not be closed:" -ForegroundColor Yellow
+        $stillRunning | ForEach-Object { Write-Host "  - $($_.ProcessName) (PID: $($_.Id))" -ForegroundColor White }
+        return $false
+    }
+
+    Write-Host "✅ All distracting apps closed successfully" -ForegroundColor Green
+    return $true
+}
+
 function Get-WorkModeConfiguration {
     [CmdletBinding()]
     param()
@@ -828,6 +1272,16 @@ function Get-WorkModeConfiguration {
     # Return configuration object with all settings
     return @{
         ForceCloseApps = if ($configData.ForceCloseApps -ne $null) { $configData.ForceCloseApps } else { $false }
+        DistractingApps = if ($configData.DistractingApps) {
+            $configData.DistractingApps
+        } else {
+            # Default configuration for backward compatibility
+            @{
+                ProcessNames = @("discord", "steam", "EpicGamesLauncher")
+                ForceClose = $false
+                WarningMessage = "Closing distracting apps to improve focus..."
+            }
+        }
     }
 }
 
@@ -1026,8 +1480,8 @@ function Get-TodayStats {
     $workPercentage = if ($totalMinutes -gt 0) { [Math]::Round(($workMinutes / $totalMinutes) * 100, 1) } else { 0 }
 
     return @{
-        WorkTime       = Format-Duration (New-TimeSpan -Minutes $workMinutes)
-        NormalTime     = Format-Duration (New-TimeSpan -Minutes $normalMinutes)
+        WorkTime       = Format-Duration -Duration (New-TimeSpan -Minutes $workMinutes)
+        NormalTime     = Format-Duration -Duration (New-TimeSpan -Minutes $normalMinutes)
         WorkPercentage = $workPercentage
     }
 }
@@ -1396,6 +1850,12 @@ function Get-WorkModeHelp {
             Category    = "Stats"
             Examples    = @("wmh-history", "wmh-history -Days 7")
         }
+        "wmh-clear" = @{
+            Description = "Clear all WorkMode statistics and session history"
+            Function    = "Clear-WorkModeStats"
+            Category    = "Stats"
+            Examples    = @("wmh-clear")
+        }
         "wmh-add" = @{
             Description = "Add website to block list"
             Function    = "Add-WorkBlockSite"
@@ -1544,7 +2004,7 @@ Sync-WorkModeState
 # Export functions
 Export-ModuleMember -Function @(
     'Enable-WorkMode', 'Disable-WorkMode', 'Get-WorkModeStatus',
-    'Get-ProductivityStats', 'Get-WorkModeHistory',
+    'Get-ProductivityStats', 'Get-WorkModeHistory', 'Clear-WorkModeStats',
     'Add-WorkBlockSite', 'Remove-WorkBlockSite', 'Get-WorkBlockSites',
     'Update-WorkMode', 'Test-WorkModeInstallation', 'Get-WorkModeInfo',
     'Uninstall-WorkMode', 'Get-WorkModeHelp'
@@ -1552,7 +2012,7 @@ Export-ModuleMember -Function @(
 
 # Export aliases
 Export-ModuleMember -Alias @(
-    'wmh-on', 'wmh-off', 'wmh-status', 'wmh-stats', 'wmh-history',
+    'wmh-on', 'wmh-off', 'wmh-status', 'wmh-stats', 'wmh-history', 'wmh-clear',
     'wmh-add', 'wmh-remove', 'wmh-list',
     'wmh-update', 'wmh-test', 'wmh-info', 'wmh-help', 'wmh-uninstall'
 )

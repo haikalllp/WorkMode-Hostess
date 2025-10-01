@@ -8,7 +8,7 @@ try {
 
     # Test all wmh- aliases
     $commands = @(
-        'wmh-on', 'wmh-off', 'wmh-status', 'wmh-stats', 'wmh-history',
+        'wmh-on', 'wmh-off', 'wmh-status', 'wmh-stats', 'wmh-history', 'wmh-clear',
         'wmh-add', 'wmh-remove', 'wmh-list', 'wmh-update', 'wmh-test',
         'wmh-info', 'wmh-help', 'wmh-uninstall'
     )
