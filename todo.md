@@ -1,6 +1,6 @@
 # WorkMode-Hostess Improvements TODO
 
-This document contains a comprehensive plan for addressing all issues and improvements identified in `issues/improvements1.md`. The improvements are organized into 4 epics with 21 detailed tasks, each with technical implementation details and priority levels.
+This document contains a comprehensive plan for addressing all issues and improvements identified in `issues/improvements1.md`. The improvements are organized into 5 epics with 26 detailed tasks, each with technical implementation details and priority levels.
 
 ## Epic 1: Configuration Architecture Overhaul
 
@@ -59,14 +59,58 @@ This document contains a comprehensive plan for addressing all issues and improv
   ```powershell
   function Close-DistractingApps {
       param([array]$Processes, [switch]$Force)
-      # Attempt graceful close first, then force if needed
+      # Attempt graceful close first (WM_CLOSE message)
+      # Wait 5 seconds for graceful shutdown
+      # Force terminate if still running and Force flag is set
+      # Log closure attempts and results
+  }
+  ```
+- [ ] Create `Get-ConfigurableDistractingApps` function to read from config:
+  ```powershell
+  function Get-ConfigurableDistractingApps {
+      # Read from config/work-sites.json new section:
+      # "DistractingApps": {
+      #   "ProcessNames": ["discord", "steam", "EpicGamesLauncher"],
+      #   "ForceClose": false,
+      #   "WarningMessage": "Closing distracting apps to improve focus..."
+      # }
   }
   ```
 - [ ] Integrate app closing into `Enable-WorkMode` workflow (around lines 128-154)
-- [ ] Add configuration option `ForceCloseApps` in sites config (already exists)
-- [ ] Add user confirmation prompt for app closing
+- [ ] Add user confirmation prompt for app closing with app list display
+- [ ] Add configuration validation for process names
+- [ ] Test app detection and closing across different Windows versions
+- [ ] Add exception handling for protected system processes
 
-**Files to Modify**: `WorkMode.psm1`
+**Files to Modify**: `WorkMode.psm1`, `config/work-sites.json`
+
+---
+
+### Task 1.3: Data Migration for Unified Block Lists (High Priority)
+**Root Cause**: Need to migrate existing user configurations to new unified format without data loss.
+
+**Technical Implementation**:
+- [ ] Create `Migrate-WorkModeConfiguration` function:
+  ```powershell
+  function Migrate-WorkModeConfiguration {
+      [CmdletBinding(SupportsShouldProcess=$true)]
+      param()
+      
+      # Detect old configuration format
+      # Create backup of existing configuration
+      # Migrate BlockSites and CustomSites to new unified structure
+      # Preserve user-added sites with "Custom" category
+      # Add migration metadata (version, timestamp)
+      # Validate migrated configuration
+  }
+  ```
+- [ ] Add migration check in `Initialize-WorkModeData` to auto-migrate on first run
+- [ ] Add rollback functionality in case of migration failure
+- [ ] Update configuration version tracking system
+- [ ] Add migration logging for troubleshooting
+- [ ] Test migration scenarios: fresh install, existing config, corrupted config
+
+**Files to Modify**: `WorkMode.psm1`, `config/work-sites.json`
 
 ---
 
@@ -178,6 +222,19 @@ This document contains a comprehensive plan for addressing all issues and improv
   }
   ```
 - [ ] Update all calls to use `$force` instead of `$Force`
+- [ ] Comprehensive parameter audit across all functions:
+  ```powershell
+  # Audit checklist:
+  # - Verify all functions use consistent parameter naming
+  # - Check for proper parameter validation
+  # - Validate error message consistency
+  # - Ensure help documentation matches parameters
+  # - Test parameter binding edge cases
+  ```
+- [ ] Update `Get-WorkModeStatus` parameter handling
+- [ ] Update `Get-ProductivityStats` parameter handling
+- [ ] Update `Get-WorkModeHistory` parameter handling
+- [ ] Update all remaining functions with inconsistent parameter patterns
 
 **Files to Modify**: `WorkMode.psm1`
 
@@ -304,7 +361,7 @@ This document contains a comprehensive plan for addressing all issues and improv
 **Root Cause**: Session state not properly synchronized across different terminal instances.
 
 **Technical Implementation**:
-- [ ] Debug `Restore-CurrentSession` function (lines 855-877) for cross-terminal state:
+- [ ] **Task 4.3.1**: Debug `Restore-CurrentSession` function (lines 855-877) for cross-terminal state:
   ```powershell
   function Restore-CurrentSession {
       # Add more robust error handling
@@ -312,9 +369,27 @@ This document contains a comprehensive plan for addressing all issues and improv
       # Ensure proper session state restoration
   }
   ```
-- [ ] Enhance `Sync-WorkModeState` function to verify hostess state matches session state
-- [ ] Add session validation in `Get-WorkModeStatus` to detect inconsistencies
+- [ ] **Task 4.3.2**: Enhance `Sync-WorkModeState` function to verify hostess state matches session state:
+  ```powershell
+  function Sync-WorkModeState {
+      # Verify hostess hosts file state
+      # Compare with session state
+      # Detect and report inconsistencies
+      # Auto-repair minor inconsistencies
+  }
+  ```
+- [ ] **Task 4.3.3**: Add session validation in `Get-WorkModeStatus` to detect inconsistencies:
+  ```powershell
+  function Get-WorkModeStatus {
+      # Add session state validation
+      # Detect orphaned sessions
+      # Report state mismatches
+      # Provide repair suggestions
+  }
+  ```
 - [ ] Test scenario: enable WorkMode in terminal A, close, open terminal B, check status
+- [ ] Add session file locking to prevent concurrent access issues
+- [ ] Implement session recovery mechanism for corrupted session files
 
 **Files to Modify**: `WorkMode.psm1`
 
@@ -362,25 +437,161 @@ This document contains a comprehensive plan for addressing all issues and improv
 
 ---
 
+## Epic 5: Error Handling & Resilience
+
+**Goal**: Implement comprehensive error handling, logging framework, and resilience patterns throughout the application.
+
+### Issues Addressed:
+- **Issue 40**: Add comprehensive error handling for all critical operations
+- **Issue 41**: Implement logging framework for troubleshooting
+- **Issue 42**: Add resilience patterns for network and file operations
+
+---
+
+### Task 5.1: Implement Logging Framework (High Priority)
+**Root Cause**: No centralized logging mechanism for troubleshooting and debugging.
+
+**Technical Implementation**:
+- [ ] Create `Write-WorkModeLog` function:
+  ```powershell
+  function Write-WorkModeLog {
+      [CmdletBinding()]
+      param(
+          [Parameter(Mandatory=$true)]
+          [string]$Message,
+          
+          [ValidateSet("Info", "Warning", "Error", "Debug")]
+          [string]$Level = "Info",
+          
+          [string]$Component = "WorkMode",
+          
+          [switch]$WriteToHost
+      )
+      
+      # Log to file with rotation
+      # Include timestamp, level, component, message
+      # Implement log file size limits
+      # Add structured logging for key operations
+  }
+  ```
+- [ ] Add logging configuration to `config/work-sites.json`:
+  ```json
+  "Logging": {
+      "Enabled": true,
+      "LogLevel": "Info",
+      "MaxFileSizeMB": 10,
+      "MaxFiles": 5,
+      "LogPath": "$env:USERPROFILE\\.workmode\\logs"
+  }
+  ```
+- [ ] Add logging to all critical functions (Enable-WorkMode, Disable-WorkMode, etc.)
+- [ ] Implement log rotation and cleanup
+- [ ] Add log viewing command `wmh-logs`
+
+**Files to Modify**: `WorkMode.psm1`, `config/work-sites.json`
+
+---
+
+### Task 5.2: Add Comprehensive Error Handling (High Priority)
+**Root Cause**: Inconsistent error handling patterns and lack of user-friendly error messages.
+
+**Technical Implementation**:
+- [ ] Create `Invoke-WorkModeOperation` wrapper function:
+  ```powershell
+  function Invoke-WorkModeOperation {
+      [CmdletBinding()]
+      param(
+          [Parameter(Mandatory=$true)]
+          [scriptblock]$Operation,
+          
+          [string]$OperationName,
+          
+          [switch]$ContinueOnError
+      )
+      
+      # Standardized error handling pattern
+      # Try-catch with specific exception types
+      # User-friendly error messages
+      # Operation logging
+      # Cleanup on failure
+  }
+  ```
+- [ ] Update all critical functions to use standardized error handling:
+  - [ ] `Enable-WorkMode` with hostess operation error handling
+  - [ ] `Disable-WorkMode` with cleanup on failure
+  - [ ] `Initialize-WorkModeData` with configuration error handling
+  - [ ] `Save-CurrentSession` with file operation error handling
+- [ ] Add specific exception types for different error scenarios
+- [ ] Implement retry logic for transient failures
+- [ ] Add error recovery suggestions in error messages
+
+**Files to Modify**: `WorkMode.psm1`
+
+---
+
+### Task 5.3: Implement Resilience Patterns (Medium Priority)
+**Root Cause**: No retry mechanisms or fallback strategies for transient failures.
+
+**Technical Implementation**:
+- [ ] Create `Invoke-WorkModeRetry` function:
+  ```powershell
+  function Invoke-WorkModeRetry {
+      [CmdletBinding()]
+      param(
+          [Parameter(Mandatory=$true)]
+          [scriptblock]$Operation,
+          
+          [int]$MaxAttempts = 3,
+          
+          [int]$DelaySeconds = 1,
+          
+          [string]$OperationName
+      )
+      
+      # Exponential backoff retry logic
+      # Attempt logging
+      # Final failure handling
+  }
+  ```
+- [ ] Add retry logic to file operations:
+  - [ ] Configuration file read/write operations
+  - [ ] Session file operations
+  - [ ] Log file operations
+- [ ] Add fallback mechanisms for critical operations:
+  - [ ] Alternative hosts file path detection
+  - [ ] Fallback configuration loading
+  - [ ] Graceful degradation when features unavailable
+- [ ] Add circuit breaker pattern for repeated failures
+- [ ] Implement health checks for critical dependencies
+
+**Files to Modify**: `WorkMode.psm1`
+
+---
+
 ## Implementation Priority Order
 
 ### Phase 1 (Critical Fixes - High Priority)
 1. **Task 4.4**: Fix Format-Duration Error (prevents core functionality)
 2. **Task 4.2**: Add Admin Privilege Checks (security requirement)
-3. **Task 1.1**: Unify Block Lists (architecture improvement)
-4. **Task 1.2**: Implement App Closing System (enhanced functionality)
-5. **Task 3.3**: Add Track Command (user-requested feature)
-6. **Task 4.3**: Fix Session Persistence (core bug)
+3. **Task 5.1**: Implement Logging Framework (foundational for debugging)
+4. **Task 5.2**: Add Comprehensive Error Handling (improves reliability)
+5. **Task 1.1**: Unify Block Lists (architecture improvement)
+6. **Task 1.3**: Data Migration for Unified Block Lists (prevents data loss)
+7. **Task 1.2**: Implement App Closing System (enhanced functionality)
+8. **Task 3.3**: Add Track Command (user-requested feature)
+9. **Task 4.3**: Fix Session Persistence (core bug)
 
 ### Phase 2 (User Experience - Medium Priority)
-7. **Task 2.1**: Enhance Time Formatting
-8. **Task 2.2**: Add Statistics Clearing
-9. **Task 3.1**: Standardize Force Parameters
-10. **Task 4.1**: Add Installation Reload Prompts
+10. **Task 2.1**: Enhance Time Formatting
+11. **Task 2.2**: Add Statistics Clearing
+12. **Task 3.1**: Standardize Force Parameters
+13. **Task 4.1**: Add Installation Reload Prompts
+14. **Task 5.3**: Implement Resilience Patterns (improves robustness)
+15. **Task 6.1**: Comprehensive Documentation Update
 
 ### Phase 3 (Polish - Low Priority)
-11. **Task 3.2**: Rename Test Command
-12. **Task 4.5**: Fix Module Import Message
+16. **Task 3.2**: Rename Test Command
+17. **Task 4.5**: Fix Module Import Message
 
 ---
 
@@ -424,16 +635,71 @@ This document contains a comprehensive plan for addressing all issues and improv
 - Ensure all new functions have proper help documentation
 - Update command reference tables in documentation
 
+### Task 6.1: Comprehensive Documentation Update (Medium Priority)
+**Root Cause**: Documentation needs to be updated to reflect all architectural changes and new features.
+
+**Technical Implementation**:
+- [ ] Update README.md with:
+  - New unified configuration architecture explanation
+  - Updated command reference with all new parameters
+  - New app closing functionality documentation
+  - Enhanced troubleshooting section
+  - Updated installation instructions with admin requirements
+- [ ] Update CLAUDE.md with:
+  - New unified configuration structure details
+  - Error handling patterns and logging framework
+  - Session persistence mechanisms
+  - Resilience patterns implementation
+- [ ] Create new documentation files:
+  - [ ] `docs/configuration.md` - Configuration reference guide
+  - [ ] `docs/troubleshooting.md` - Comprehensive troubleshooting guide
+  - [ ] `docs/api-reference.md` - Complete API reference
+- [ ] Update inline code documentation for all modified functions
+- [ ] Add usage examples for all new features
+- [ ] Create migration guide for existing users
+
+**Files to Modify**: `README.md`, `CLAUDE.md`, `WorkMode.psm1`, new documentation files
+
+---
+
+## Completion Criteria
+
+## Additional Technical Recommendations
+
+### Configuration Versioning System
+- Implement configuration version tracking to handle future migrations
+- Add configuration validation and schema verification
+- Create configuration backup and restore mechanisms
+
+### Performance Optimizations
+- Optimize configuration loading with caching mechanisms
+- Implement lazy loading for non-critical components
+- Add performance monitoring for key operations
+
+### Testing Enhancements
+- Add unit tests for new error handling patterns
+- Create integration tests for session persistence scenarios
+- Implement automated testing for configuration migration
+
+### Security Improvements
+- Add configuration file integrity verification
+- Implement secure session data storage
+- Add audit logging for security-relevant operations
+
 ---
 
 ## Completion Criteria
 
 This TODO list will be considered complete when:
-1. All 21 tasks are implemented and tested
+1. All 26 tasks are implemented and tested
 2. All issues from `issues/improvements1.md` are resolved
 3. Full test suite passes without errors
 4. Documentation is updated to reflect all changes
 5. Installation/uninstallation workflows are thoroughly tested
 6. Session persistence works reliably across terminal sessions
+7. Error handling and logging framework is fully functional
+8. Configuration migration works seamlessly for existing users
+9. All new resilience patterns are tested and working
+10. Comprehensive documentation is complete and accurate
 
 *Last Updated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')*
