@@ -1,4 +1,4 @@
-###############################################################################
+﻿###############################################################################
 #                                                                             #
 #                           WorkMode Module                                   #
 #                                                                             #
@@ -186,7 +186,7 @@ function Migrate-WorkModeConfiguration {
                 ForceClose = $false
                 WarningMessage = "Closing distracting apps to improve focus..."
             }
-            ForceCloseApps = if ($SitesData.ForceCloseApps -ne $null) { $SitesData.ForceCloseApps } else { $false }
+            ForceCloseApps = if ($null -ne $SitesData.ForceCloseApps) { $SitesData.ForceCloseApps } else { $false }
             Version = "2.0"
             LastUpdated = (Get-Date).ToString("o")
             MigrationInfo = @{
@@ -195,10 +195,10 @@ function Migrate-WorkModeConfiguration {
                 BackupPath = $backupPath
             }
         }
-        
+
         # Add default sites to AllSites
         $newConfig.AllSites = $script:DefaultBlockSites
-        
+
         # Add user's custom sites to AllSites and Custom category
         if ($SitesData.CustomSites -and $SitesData.CustomSites.Count -gt 0) {
             foreach ($site in $SitesData.CustomSites) {
@@ -209,14 +209,14 @@ function Migrate-WorkModeConfiguration {
                 }
             }
         }
-        
+
         # Write new configuration
         $newConfig | ConvertTo-Json -Depth 10 | Set-Content -Path $SitesConfigPath -Encoding UTF8
-        
+
         return $true
     } catch {
         Write-Error "Migration failed: $($_.Exception.Message)"
-        
+
         # Try to restore from backup if migration failed
         if ($backupPath -and (Test-Path $backupPath)) {
             try {
@@ -1001,7 +1001,7 @@ function Get-WorkBlockSites {
         foreach ($category in $sitesData.Categories.PSObject.Properties) {
             $categoryName = $category.Name
             $sites = $category.Value
-            
+
             if ($sites.Count -gt 0) {
                 $color = switch ($categoryName) {
                     "SocialMedia" { "Yellow" }
@@ -1011,7 +1011,7 @@ function Get-WorkBlockSites {
                     "Custom" { "Red" }
                     default { "White" }
                 }
-                
+
                 Write-Host "$categoryName ($($sites.Count)):" -ForegroundColor $color
                 foreach ($site in $sites) {
                     Write-Host "  • $site" -ForegroundColor Gray
@@ -1271,7 +1271,7 @@ function Get-WorkModeConfiguration {
 
     # Return configuration object with all settings
     return @{
-        ForceCloseApps = if ($configData.ForceCloseApps -ne $null) { $configData.ForceCloseApps } else { $false }
+        ForceCloseApps = if ($null -ne $configData.ForceCloseApps) { $configData.ForceCloseApps } else { $false }
         DistractingApps = if ($configData.DistractingApps) {
             $configData.DistractingApps
         } else {

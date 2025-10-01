@@ -10,6 +10,7 @@ Core files and data
 
 Quick commands (development & tests)
 - Run all tests: `.\scripts\run-all-tests.ps1`
+- If any issues from test run test individually: `.\scripts\tests/test_commands.ps1`, `.\scripts\tests/test_import.ps1`, `.\scripts\tests/test_syntax.ps1`
 - Import module for dev: `Import-Module .\WorkMode.psm1 -Force`
 - Local install: `.\scripts\install-local.ps1`
 - Remote (simulate): `irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/master/scripts/install-remote.ps1 | iex`
@@ -41,13 +42,12 @@ Practical tips
 
 If you need more detail, open the full repository docs or the original CLAUDE.md.
 
+Follow these tool rules when using MCP tooling in this repo.
+
 MCP tools (Byterover) — when to use
 - `byterover-store-knowledge`: use when learning new patterns/APIs from the codebase; encountering error solutions; finding reusable code or utilities; or after completing any significant task/plan implementation.
 - `byterover-retrieve-knowledge`: use when starting a new task; before architectural decisions; when debugging to check prior solutions; or when working with unfamiliar parts of the codebase.
 
-Follow these tool rules when using MCP tooling in this repo.
-
 Context7 (library docs) - when to use
 - Please run `upstash-context7-mcp` to better understand cbednarski/hostess by pulling its relevant documentation and code using the mcp tool.
 - Please run `upstash-context7-mcp` to better understand PowerShell modules development by pulling relevant documentation and code using the mcp tool.
-
