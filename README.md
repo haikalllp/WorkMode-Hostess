@@ -71,8 +71,10 @@ wmh-on
 wmh-off
 
 # Force enable/disable (useful for debugging or recovery)
-wmh-on -Force
-wmh-off -Force
+wmh-on -force
+wmh-off -force
+wmh-on -f
+wmh-off -f
 
 # Check current status
 wmh-status
@@ -91,9 +93,9 @@ wmh-list
 | Command | Alias | Description |
 |---------|-------|-------------|
 | `Enable-WorkMode` | `wmh-on` | Enable WorkMode (block sites, start timer) |
-| `Enable-WorkMode -Force` | `wmh-on -Force` | Force enable WorkMode (bypass state checks for debugging) |
+| `Enable-WorkMode -force` | `wmh-on -force` | Force enable WorkMode (bypass state checks for debugging) |
 | `Disable-WorkMode` | `wmh-off` | Disable WorkMode (unblock sites, start timer) |
-| `Disable-WorkMode -Force` | `wmh-off -Force` | Force disable WorkMode (bypass state checks for debugging) |
+| `Disable-WorkMode -force` | `wmh-off -force` | Force disable WorkMode (bypass state checks for debugging) |
 | `Get-WorkModeStatus` | `wmh-status` | Show current mode and session info |
 | `Get-ProductivityStats` | `wmh-stats` | Show productivity statistics |
 | `Get-WorkModeHistory` | `wmh-history` | Display recent session history |
@@ -101,7 +103,8 @@ wmh-list
 | `Remove-WorkBlockSite` | `wmh-remove` | Remove website from block list |
 | `Get-WorkBlockSites` | `wmh-list` | List all blocked websites |
 | `Update-WorkMode` | `wmh-update` | Update hostess binary from GitHub |
-| `Test-WorkModeInstallation` | `wmh-test` | Test WorkMode installation |
+| `Invoke-WorkModeDoctor` | `wmh-doctor` | Test WorkMode installation |
+| `Start-WorkModeTracking` | `wmh-track` | Start tracking time without changing mode |
 | `Get-WorkModeInfo` | `wmh-info` | Display module information |
 | `Get-WorkModeHelp` | `wmh-help` | Show command help |
 | `Uninstall-WorkMode` | `wmh-uninstall` | Uninstall WorkMode module |
@@ -193,8 +196,10 @@ pwsh --version
 **Corrupted Session State**
 - If WorkMode gets stuck in an inconsistent state, use the force parameter:
   ```powershell
-  wmh-on -Force   # Force enable WorkMode
-  wmh-off -Force  # Force disable WorkMode
+  wmh-on -force   # Force enable WorkMode
+  wmh-off -force  # Force disable WorkMode
+  wmh-on -f       # Short form
+  wmh-off -f      # Short form
   ```
 
 **Hostess Binary Issues**
@@ -225,7 +230,7 @@ wmh-off -Force
 # - You need to bypass normal validation for debugging
 ```
 
-**When to use Force parameter:**
+**When to use force parameter:**
 - When WorkMode shows incorrect current mode
 - After system crashes or unexpected shutdowns
 - When session data becomes corrupted
@@ -254,6 +259,18 @@ $totalWorkTime = ($data.Sessions | Where-Object { $_.Mode -eq "Work" } |
     Measure-Object -Property DurationHours -Sum).Sum
 
 Write-Host "Total work hours: $totalWorkTime"
+```
+
+### Time Tracking Without Mode Changes
+```powershell
+# Start tracking work time without blocking sites
+wmh-track -Mode Work
+
+# Start tracking break time without unblocking sites
+wmh-track -Mode Normal
+
+# Check current tracking status
+wmh-status
 ```
 
 ## Author

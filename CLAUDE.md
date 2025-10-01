@@ -16,8 +16,8 @@ Quick commands (development & tests)
 - Remote (simulate): `irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/master/scripts/install-remote.ps1 | iex`
 
 Command conventions
-- All user-facing commands use the `wmh-` prefix: e.g. `wmh-on`, `wmh-off`, `wmh-status`, `wmh-stats`, `wmh-add`, `wmh-remove`, `wmh-list`, `wmh-update`, `wmh-test`, `wmh-uninstall`.
-- `-Force` is supported where noted (e.g. `wmh-on -Force`, `wmh-off -Force`) to bypass state checks and recover sessions.
+- All user-facing commands use the `wmh-` prefix: e.g. `wmh-on`, `wmh-off`, `wmh-status`, `wmh-stats`, `wmh-add`, `wmh-remove`, `wmh-list`, `wmh-update`, `wmh-doctor`, `wmh-track`, `wmh-uninstall`.
+- `-force` (with `-f` alias) is supported where noted (e.g. `wmh-on -force`, `wmh-off -force`) to bypass state checks and recover sessions.
 
 Hostess integration notes
 - Hostess returns: successes are String objects; failures are ErrorRecord objects.

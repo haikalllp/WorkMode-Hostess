@@ -68,7 +68,14 @@ FunctionsToExport = @(
     'Get-WorkModeHistory',
     'Add-WorkBlockSite',
     'Remove-WorkBlockSite',
-    'Get-WorkBlockSites'
+    'Get-WorkBlockSites',
+    'Start-WorkModeTracking',
+    'Clear-WorkModeStats',
+    'Update-WorkMode',
+    'Invoke-WorkModeDoctor',
+    'Get-WorkModeInfo',
+    'Uninstall-WorkMode',
+    'Get-WorkModeHelp'
 )
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
@@ -87,7 +94,9 @@ AliasesToExport = @(
     'work-clear',
     'add-block-site',
     'remove-block-site',
-    'show-block-sites'
+    'show-block-sites',
+    'wmh-doctor',
+    'wmh-track'
 )
 
 # DSC resources to export from this module

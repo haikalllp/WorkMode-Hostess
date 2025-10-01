@@ -239,18 +239,25 @@ function Enable-WorkMode {
     [CmdletBinding()]
     [Alias("wmh-on")]
     param(
-        [switch]$Force
+        [Alias("f")]
+        [switch]$force
     )
 
     Assert-Admin
 
-    if ($script:CurrentSession.Mode -eq "Work" -and -not $Force) {
+    # Parameter validation for invalid arguments
+    if ($PSBoundParameters.Count -gt 0 -and -not $PSBoundParameters.ContainsKey('force')) {
+        Write-Error "Invalid parameter. Usage: wmh-on [--force|-f]"
+        return
+    }
+
+    if ($script:CurrentSession.Mode -eq "Work" -and -not $force) {
         Write-Host "Already in WorkMode!" -ForegroundColor Yellow
         Get-WorkModeStatus
         return
     }
 
-    if ($Force) {
+    if ($force) {
         Write-Host "🔴 Force enabling WorkMode..." -ForegroundColor Red
         Write-Host "⚠️  Bypassing state checks and forcing mode transition" -ForegroundColor Yellow
     } else {
@@ -263,7 +270,7 @@ function Enable-WorkMode {
             try {
                 Complete-Session -Mode $script:CurrentSession.Mode
             } catch {
-                if ($Force) {
+                if ($force) {
                     Write-Warning "Could not complete existing session normally, forcing transition..."
                     # Reset session state if corrupted
                     $script:CurrentSession.StartTime = $null
@@ -371,18 +378,25 @@ function Disable-WorkMode {
     [CmdletBinding()]
     [Alias("wmh-off")]
     param(
-        [switch]$Force
+        [Alias("f")]
+        [switch]$force
     )
 
     Assert-Admin
 
-    if ($script:CurrentSession.Mode -eq "Normal" -and -not $Force) {
+    # Parameter validation for invalid arguments
+    if ($PSBoundParameters.Count -gt 0 -and -not $PSBoundParameters.ContainsKey('force')) {
+        Write-Error "Invalid parameter. Usage: wmh-off [--force|-f]"
+        return
+    }
+
+    if ($script:CurrentSession.Mode -eq "Normal" -and -not $force) {
         Write-Host "Already in NormalMode!" -ForegroundColor Yellow
         Get-WorkModeStatus
         return
     }
 
-    if ($Force) {
+    if ($force) {
         Write-Host "🟢 Force disabling WorkMode..." -ForegroundColor Green
         Write-Host "⚠️  Bypassing state checks and forcing mode transition" -ForegroundColor Yellow
     } else {
@@ -395,7 +409,7 @@ function Disable-WorkMode {
             try {
                 Complete-Session -Mode $script:CurrentSession.Mode
             } catch {
-                if ($Force) {
+                if ($force) {
                     Write-Warning "Could not complete existing session normally, forcing transition..."
                     # Reset session state if corrupted
                     $script:CurrentSession.StartTime = $null
@@ -744,6 +758,36 @@ function Clear-WorkModeStats {
     } else {
         Write-Host "Operation cancelled. No data was deleted." -ForegroundColor Yellow
     }
+}
+
+function Start-WorkModeTracking {
+    [CmdletBinding()]
+    [Alias("wmh-track")]
+    param(
+        [Parameter(Mandatory=$false)]
+        [ValidateSet("Work", "Normal")]
+        [string]$Mode = "Work"
+    )
+
+    Initialize-WorkModeData
+
+    # Check if already tracking
+    if ($script:CurrentSession.StartTime) {
+        Write-Host "Already tracking a session. Use 'wmh-on' or 'wmh-off' to change mode." -ForegroundColor Yellow
+        return
+    }
+
+    # Start tracking without mode change
+    $script:CurrentSession.StartTime = Get-Date
+    $script:CurrentSession.SessionId = [Guid]::NewGuid().ToString()
+    Save-CurrentSession
+
+    $modeIcon = if ($Mode -eq "Work") { "🔴" } else { "🟢" }
+    $modeColor = if ($Mode -eq "Work") { "Red" } else { "Green" }
+    
+    Write-Host "$modeIcon Started tracking $Mode session" -ForegroundColor $modeColor
+    Write-Host "Session started at: $($script:CurrentSession.StartTime.ToString('HH:mm:ss'))" -ForegroundColor Cyan
+    Write-Host "Use 'wmh-on' or 'wmh-off' to switch modes when ready" -ForegroundColor White
 }
 
 #endregion
@@ -1500,7 +1544,8 @@ function Update-WorkMode {
     [CmdletBinding()]
     [Alias("wmh-update")]
     param(
-        [Parameter()] [switch]$Force,
+        [Alias("f")]
+        [Parameter()] [switch]$force,
         [Parameter()] [switch]$WhatIf
     )
 
@@ -1527,9 +1572,9 @@ function Update-WorkMode {
         if (-not $asset) { Write-Warning "No suitable Windows binary found in release"; return }
 
         $updateAvailable = $true
-        $updateReason = if ($Force) { "forced update" } elseif ($currentHostessVersion -eq "not working") { "current binary not working" } else { "newer version available" }
+        $updateReason = if ($force) { "forced update" } elseif ($currentHostessVersion -eq "not working") { "current binary not working" } else { "newer version available" }
 
-        if (-not $updateAvailable -and -not $Force) {
+        if (-not $updateAvailable -and -not $force) {
             Write-Host "✅ WorkMode is up to date" -ForegroundColor Green
             return
         }
@@ -1581,9 +1626,9 @@ function Update-WorkMode {
     }
 }
 
-function Test-WorkModeInstallation {
+function Invoke-WorkModeDoctor {
     [CmdletBinding()]
-    [Alias("wmh-test")]
+    [Alias("wmh-doctor")]
     param()
 
     Write-Host "🔧 Testing WorkMode installation..." -ForegroundColor Cyan
@@ -1681,7 +1726,7 @@ function Get-WorkModeInfo {
     }
 
     Write-Host ""
-    Write-Host "Use 'wmh-test' to verify installation" -ForegroundColor Cyan
+    Write-Host "Use 'wmh-doctor' to verify installation" -ForegroundColor Cyan
     Write-Host "Use 'wmh-update' to check for updates" -ForegroundColor Cyan
 }
 
@@ -1695,7 +1740,8 @@ function Uninstall-WorkMode {
     param(
         [Parameter()] [switch]$Backup,
         [Parameter()] [switch]$KeepData,
-        [Parameter()] [switch]$Force
+        [Alias("f")]
+        [Parameter()] [switch]$force
     )
 
     $modulePath = "$env:USERPROFILE\Documents\PowerShell\Modules\WorkMode"
@@ -1719,7 +1765,7 @@ function Uninstall-WorkMode {
 
     Write-Host ""
 
-    if (-not $Force -and -not $WhatIfPreference) {
+    if (-not $force -and -not $WhatIfPreference) {
         $response = Read-Host "Continue with uninstallation? (y/N)"
         if ($response -notmatch '^[yY]$') {
             Write-Host "Uninstallation cancelled." -ForegroundColor Yellow
@@ -1824,13 +1870,13 @@ function Get-WorkModeHelp {
             Description = "Enable WorkMode (block sites, start work timer)"
             Function    = "Enable-WorkMode"
             Category    = "Core"
-            Examples    = @("wmh-on", "wmh-on -Force", "wmh-on -Verbose")
+            Examples    = @("wmh-on", "wmh-on -force", "wmh-on -f", "wmh-on -Verbose")
         }
         "wmh-off" = @{
             Description = "Disable WorkMode (unblock sites, start break timer)"
             Function    = "Disable-WorkMode"
             Category    = "Core"
-            Examples    = @("wmh-off", "wmh-off -Force", "wmh-off -Verbose")
+            Examples    = @("wmh-off", "wmh-off -force", "wmh-off -f", "wmh-off -Verbose")
         }
         "wmh-status" = @{
             Description = "Show current mode and session information"
@@ -1856,6 +1902,12 @@ function Get-WorkModeHelp {
             Category    = "Stats"
             Examples    = @("wmh-clear")
         }
+        "wmh-track" = @{
+            Description = "Start tracking time without changing mode"
+            Function    = "Start-WorkModeTracking"
+            Category    = "Core"
+            Examples    = @("wmh-track", "wmh-track -Mode Work", "wmh-track -Mode Normal")
+        }
         "wmh-add" = @{
             Description = "Add website to block list"
             Function    = "Add-WorkBlockSite"
@@ -1878,13 +1930,13 @@ function Get-WorkModeHelp {
             Description = "Update hostess binary from GitHub releases"
             Function    = "Update-WorkMode"
             Category    = "System"
-            Examples    = @("wmh-update", "wmh-update -Force")
+            Examples    = @("wmh-update", "wmh-update -force", "wmh-update -f")
         }
-        "wmh-test" = @{
+        "wmh-doctor" = @{
             Description = "Test WorkMode installation and dependencies"
-            Function    = "Test-WorkModeInstallation"
+            Function    = "Invoke-WorkModeDoctor"
             Category    = "System"
-            Examples    = @("wmh-test", "wmh-test -Detailed")
+            Examples    = @("wmh-doctor", "wmh-doctor -Detailed")
         }
         "wmh-info" = @{
             Description = "Display WorkMode module information"
@@ -1896,7 +1948,7 @@ function Get-WorkModeHelp {
             Description = "Uninstall WorkMode module and files"
             Function    = "Uninstall-WorkMode"
             Category    = "System"
-            Examples    = @("wmh-uninstall", "wmh-uninstall -Backup")
+            Examples    = @("wmh-uninstall", "wmh-uninstall -Backup", "wmh-uninstall -force", "wmh-uninstall -f")
         }
         "wmh-help" = @{
             Description = "Show this help information"
@@ -2006,15 +2058,15 @@ Export-ModuleMember -Function @(
     'Enable-WorkMode', 'Disable-WorkMode', 'Get-WorkModeStatus',
     'Get-ProductivityStats', 'Get-WorkModeHistory', 'Clear-WorkModeStats',
     'Add-WorkBlockSite', 'Remove-WorkBlockSite', 'Get-WorkBlockSites',
-    'Update-WorkMode', 'Test-WorkModeInstallation', 'Get-WorkModeInfo',
-    'Uninstall-WorkMode', 'Get-WorkModeHelp'
+    'Update-WorkMode', 'Invoke-WorkModeDoctor', 'Get-WorkModeInfo',
+    'Uninstall-WorkMode', 'Get-WorkModeHelp', 'Start-WorkModeTracking'
 )
 
 # Export aliases
 Export-ModuleMember -Alias @(
     'wmh-on', 'wmh-off', 'wmh-status', 'wmh-stats', 'wmh-history', 'wmh-clear',
     'wmh-add', 'wmh-remove', 'wmh-list',
-    'wmh-update', 'wmh-test', 'wmh-info', 'wmh-help', 'wmh-uninstall'
+    'wmh-update', 'wmh-doctor', 'wmh-info', 'wmh-help', 'wmh-uninstall', 'wmh-track'
 )
 
 #endregion
