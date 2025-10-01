@@ -135,6 +135,9 @@ WorkMode-Hostess/
 
 ## Development Guidelines
 
+### Hostess Understanding
+- Please run upstash-context7-mcp to better understand hostess by pulling its relevant documentation and code using the mcp tool.
+
 ### Module Development
 - **Single File Architecture**: All functions in WorkMode.psm1 (no separate files)
 - **Alias System**: Maintain consistent `wmh-*` prefix for all user-facing commands
@@ -167,7 +170,7 @@ WorkMode-Hostess/
 ## Important Notes
 
 ### Windows-Only Limitations
-- Requires Windows PowerShell 5.1+
+- Requires Windows PowerShell 7.0+
 - Depends on Windows hosts file
 - Administrator privileges needed for full functionality
 - No cross-platform compatibility
