@@ -7,5 +7,9 @@
     "deny": [],
     "ask": []
   },
-  "outputStyle": "Explanatory"
+  "enabledMcpjsonServers": [
+    "byterover-mcp"
+  ],
+  "outputStyle": "Explanatory",
+  "enableAllProjectMcpServers": true
 }
