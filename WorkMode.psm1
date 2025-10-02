@@ -443,7 +443,12 @@ function Get-WorkModeStatus {
     [Alias("wmh-status")]
     param()
 
-    Initialize-WorkModeData
+    try {
+        Initialize-WorkModeData
+    } catch {
+        Write-Error "Failed to initialize WorkMode data: $($_.Exception.Message)"
+        return
+    }
 
     $isWork = $script:CurrentSession.Mode -eq "Work"
     $modeIcon  = if ($isWork) { "🔴" } else { "🟢" }
@@ -453,19 +458,28 @@ function Get-WorkModeStatus {
     Write-Host "Current Mode: $modeIcon $($script:CurrentSession.Mode)" -ForegroundColor $modeColor
 
     if ($script:CurrentSession.StartTime) {
-        $duration   = (Get-Date) - $script:CurrentSession.StartTime
-        $durationStr = Format-Duration -Duration $duration
-        Write-Host "Session Started: $($script:CurrentSession.StartTime.ToString('HH:mm:ss'))" -ForegroundColor White
-        Write-Host "Session Duration: $durationStr" -ForegroundColor White
+        try {
+            $duration   = (Get-Date) - $script:CurrentSession.StartTime
+            $durationStr = Format-Duration -Duration $duration
+            Write-Host "Session Started: $($script:CurrentSession.StartTime.ToString('HH:mm:ss'))" -ForegroundColor White
+            Write-Host "Session Duration: $durationStr" -ForegroundColor White
+        } catch {
+            Write-Host "Session Started: $($script:CurrentSession.StartTime.ToString('HH:mm:ss'))" -ForegroundColor White
+            Write-Host "Session Duration: 0h 0m 0s" -ForegroundColor White
+        }
     } else {
         Write-Host "No active session" -ForegroundColor Yellow
     }
 
-    $todayStats = Get-TodayStats
-    if ($todayStats) {
-        Write-Host "Today's Work Time: $($todayStats.WorkTime)" -ForegroundColor Green
-        Write-Host "Today's Normal Time: $($todayStats.NormalTime)" -ForegroundColor Yellow
-        Write-Host "Work Percentage: $($todayStats.WorkPercentage)%" -ForegroundColor Cyan
+    try {
+        $todayStats = Get-TodayStats
+        if ($todayStats) {
+            Write-Host "Today's Work Time: $($todayStats.WorkTime)" -ForegroundColor Green
+            Write-Host "Today's Normal Time: $($todayStats.NormalTime)" -ForegroundColor Yellow
+            Write-Host "Work Percentage: $($todayStats.WorkPercentage)%" -ForegroundColor Cyan
+        }
+    } catch {
+        Write-Warning "Could not retrieve today's statistics: $($_.Exception.Message)"
     }
 
     Write-Host ""
@@ -560,13 +574,24 @@ function Get-ProductivityStats {
     [Alias("wmh-stats")]
     param()
 
-    Initialize-WorkModeData
+    try {
+        Initialize-WorkModeData
 
-    $timeTrackingPath = Join-Path $script:WorkModeConfig.DataDir $script:WorkModeConfig.TimeTrackingFile
-    $data = Get-Content -Path $timeTrackingPath -Raw | ConvertFrom-Json
+        $timeTrackingPath = Join-Path $script:WorkModeConfig.DataDir $script:WorkModeConfig.TimeTrackingFile
 
-    if (-not $data.Sessions -or $data.Sessions.Count -eq 0) {
-        Write-Host "No sessions found. Start tracking with 'wmh-on' or 'wmh-off'" -ForegroundColor Yellow
+        if (-not (Test-Path $timeTrackingPath)) {
+            Write-Host "No data file found. Start tracking with 'wmh-on' or 'wmh-off'" -ForegroundColor Yellow
+            return
+        }
+
+        $data = Get-Content -Path $timeTrackingPath -Raw | ConvertFrom-Json
+
+        if (-not $data.Sessions -or $data.Sessions.Count -eq 0) {
+            Write-Host "No sessions found. Start tracking with 'wmh-on' or 'wmh-off'" -ForegroundColor Yellow
+            return
+        }
+    } catch {
+        Write-Error "Failed to load WorkMode data: $($_.Exception.Message)"
         return
     }
 
@@ -581,12 +606,22 @@ function Get-ProductivityStats {
     $totalNormalMinutes = ($normalSessions | Measure-Object -Property DurationMinutes -Sum).Sum
     $totalMinutes       = $totalWorkMinutes + $totalNormalMinutes
 
+    # Ensure numeric values are valid
+    $totalWorkMinutes = if ($null -eq $totalWorkMinutes -or $totalWorkMinutes -eq [double]::NaN) { 0 } else { $totalWorkMinutes }
+    $totalNormalMinutes = if ($null -eq $totalNormalMinutes -or $totalNormalMinutes -eq [double]::NaN) { 0 } else { $totalNormalMinutes }
+    $totalMinutes = if ($null -eq $totalMinutes -or $totalMinutes -eq [double]::NaN) { 0 } else { $totalMinutes }
+
     $workPercentage = if ($totalMinutes -gt 0) { [Math]::Round(($totalWorkMinutes / $totalMinutes) * 100, 1) } else { 0 }
 
     Write-Host "📊 Overall Statistics" -ForegroundColor White
     Write-Host "Total Sessions: $totalSessions" -ForegroundColor White
-    Write-Host "Total Work Time: $(Format-Duration -Duration (New-TimeSpan -Minutes $totalWorkMinutes))" -ForegroundColor Green
-    Write-Host "Total Normal Time: $(Format-Duration -Duration (New-TimeSpan -Minutes $totalNormalMinutes))" -ForegroundColor Yellow
+
+    # Safe duration calculations
+    $workDuration = if ($totalWorkMinutes -ge 0) { New-TimeSpan -Minutes $totalWorkMinutes } else { [TimeSpan]::Zero }
+    $normalDuration = if ($totalNormalMinutes -ge 0) { New-TimeSpan -Minutes $totalNormalMinutes } else { [TimeSpan]::Zero }
+
+    Write-Host "Total Work Time: $(Format-Duration -Duration $workDuration)" -ForegroundColor Green
+    Write-Host "Total Normal Time: $(Format-Duration -Duration $normalDuration)" -ForegroundColor Yellow
     Write-Host "Work Percentage: $workPercentage%" -ForegroundColor Cyan
     Write-Host ""
 
@@ -597,13 +632,24 @@ function Get-ProductivityStats {
     if ($todaySess) {
         $todayWorkMinutes   = ($todaySess | Where-Object { $_.Mode -eq "Work" }   | Measure-Object -Property DurationMinutes -Sum).Sum
         $todayNormalMinutes = ($todaySess | Where-Object { $_.Mode -eq "Normal" } | Measure-Object -Property DurationMinutes -Sum).Sum
-        $todayWorkPct = if (($todayWorkMinutes + $todayNormalMinutes) -gt 0) {
-            [Math]::Round(($todayWorkMinutes / ($todayWorkMinutes + $todayNormalMinutes)) * 100, 1)
+
+        # Ensure numeric values are valid
+        $todayWorkMinutes = if ($null -eq $todayWorkMinutes -or $todayWorkMinutes -eq [double]::NaN) { 0 } else { $todayWorkMinutes }
+        $todayNormalMinutes = if ($null -eq $todayNormalMinutes -or $todayNormalMinutes -eq [double]::NaN) { 0 } else { $todayNormalMinutes }
+
+        $todayTotalMinutes = $todayWorkMinutes + $todayNormalMinutes
+        $todayWorkPct = if ($todayTotalMinutes -gt 0) {
+            [Math]::Round(($todayWorkMinutes / $todayTotalMinutes) * 100, 1)
         } else { 0 }
 
         Write-Host "📅 Today's Statistics ($todayStr)" -ForegroundColor White
-        Write-Host "Work Time: $(Format-Duration -Duration (New-TimeSpan -Minutes $todayWorkMinutes))" -ForegroundColor Green
-        Write-Host "Normal Time: $(Format-Duration -Duration (New-TimeSpan -Minutes $todayNormalMinutes))" -ForegroundColor Yellow
+
+        # Safe duration calculations
+        $todayWorkDuration = if ($todayWorkMinutes -ge 0) { New-TimeSpan -Minutes $todayWorkMinutes } else { [TimeSpan]::Zero }
+        $todayNormalDuration = if ($todayNormalMinutes -ge 0) { New-TimeSpan -Minutes $todayNormalMinutes } else { [TimeSpan]::Zero }
+
+        Write-Host "Work Time: $(Format-Duration -Duration $todayWorkDuration)" -ForegroundColor Green
+        Write-Host "Normal Time: $(Format-Duration -Duration $todayNormalDuration)" -ForegroundColor Yellow
         Write-Host "Work Percentage: $todayWorkPct%" -ForegroundColor Cyan
         Write-Host ""
     }
@@ -614,13 +660,24 @@ function Get-ProductivityStats {
     if ($weekSessions) {
         $weekWorkMinutes   = ($weekSessions | Where-Object { $_.Mode -eq "Work" }   | Measure-Object -Property DurationMinutes -Sum).Sum
         $weekNormalMinutes = ($weekSessions | Where-Object { $_.Mode -eq "Normal" } | Measure-Object -Property DurationMinutes -Sum).Sum
-        $weekWorkPct = if (($weekWorkMinutes + $weekNormalMinutes) -gt 0) {
-            [Math]::Round(($weekWorkMinutes / ($weekWorkMinutes + $weekNormalMinutes)) * 100, 1)
+
+        # Ensure numeric values are valid
+        $weekWorkMinutes = if ($null -eq $weekWorkMinutes -or $weekWorkMinutes -eq [double]::NaN) { 0 } else { $weekWorkMinutes }
+        $weekNormalMinutes = if ($null -eq $weekNormalMinutes -or $weekNormalMinutes -eq [double]::NaN) { 0 } else { $weekNormalMinutes }
+
+        $weekTotalMinutes = $weekWorkMinutes + $weekNormalMinutes
+        $weekWorkPct = if ($weekTotalMinutes -gt 0) {
+            [Math]::Round(($weekWorkMinutes / $weekTotalMinutes) * 100, 1)
         } else { 0 }
 
         Write-Host "📆 This Week's Statistics" -ForegroundColor White
-        Write-Host "Work Time: $(Format-Duration -Duration (New-TimeSpan -Minutes $weekWorkMinutes))" -ForegroundColor Green
-        Write-Host "Normal Time: $(Format-Duration -Duration (New-TimeSpan -Minutes $weekNormalMinutes))" -ForegroundColor Yellow
+
+        # Safe duration calculations
+        $weekWorkDuration = if ($weekWorkMinutes -ge 0) { New-TimeSpan -Minutes $weekWorkMinutes } else { [TimeSpan]::Zero }
+        $weekNormalDuration = if ($weekNormalMinutes -ge 0) { New-TimeSpan -Minutes $weekNormalMinutes } else { [TimeSpan]::Zero }
+
+        Write-Host "Work Time: $(Format-Duration -Duration $weekWorkDuration)" -ForegroundColor Green
+        Write-Host "Normal Time: $(Format-Duration -Duration $weekNormalDuration)" -ForegroundColor Yellow
         Write-Host "Work Percentage: $weekWorkPct%" -ForegroundColor Cyan
         Write-Host ""
     }
@@ -1107,9 +1164,13 @@ function Format-Duration {
     }
 
     # Extract hours, minutes, and seconds for enhanced time display
-    $hours = [Math]::Floor($Duration.TotalHours)
-    $minutes = $duration.Minutes
-    $seconds = $duration.Seconds
+    try {
+        $hours = [Math]::Floor($Duration.TotalHours)
+        $minutes = $duration.Minutes
+        $seconds = $duration.Seconds
+    } catch {
+        return "0h 0m 0s"
+    }
 
     # Handle zero duration case
     if ($hours -eq 0 -and $minutes -eq 0 -and $seconds -eq 0) {
@@ -1123,7 +1184,11 @@ function Format-Duration {
     if ($seconds -gt 0) { $parts += "$seconds" + "s" }
 
     # Join components with spaces, default to "0h 0m 0s" if no parts
-    return if ($parts.Count -gt 0) { $parts -join " " } else { "0h 0m 0s" }
+    if ($parts.Count -gt 0) {
+        return $parts -join " "
+    } else {
+        return "0h 0m 0s"
+    }
 }
 
 function Get-RunningBrowserProcesses {
@@ -1499,34 +1564,63 @@ function Get-TodayStats {
     [CmdletBinding()]
     param()
 
-    $timeTrackingPath = Join-Path $script:WorkModeConfig.DataDir $script:WorkModeConfig.TimeTrackingFile
-    $data = Get-Content -Path $timeTrackingPath -Raw | ConvertFrom-Json
+    try {
+        $timeTrackingPath = Join-Path $script:WorkModeConfig.DataDir $script:WorkModeConfig.TimeTrackingFile
 
-    if (-not $data.Sessions) {
-        return $null
-    }
+        if (-not (Test-Path $timeTrackingPath)) {
+            return @{
+                WorkTime = "0h 0m 0s"
+                NormalTime = "0h 0m 0s"
+                WorkPercentage = 0
+            }
+        }
 
-    $today = (Get-Date).ToString("yyyy-MM-dd")
-    $todaySessions = $data.Sessions | Where-Object { $_.Date -eq $today }
+        $data = Get-Content -Path $timeTrackingPath -Raw | ConvertFrom-Json
 
-    if (-not $todaySessions) {
+        if (-not $data.Sessions) {
+            return @{
+                WorkTime = "0h 0m 0s"
+                NormalTime = "0h 0m 0s"
+                WorkPercentage = 0
+            }
+        }
+
+        $today = (Get-Date).ToString("yyyy-MM-dd")
+        $todaySessions = $data.Sessions | Where-Object { $_.Date -eq $today }
+
+        if (-not $todaySessions) {
+            return @{
+                WorkTime = "0h 0m 0s"
+                NormalTime = "0h 0m 0s"
+                WorkPercentage = 0
+            }
+        }
+
+        $workMinutes   = ($todaySessions | Where-Object { $_.Mode -eq "Work" }   | Measure-Object -Property DurationMinutes -Sum).Sum
+        $normalMinutes = ($todaySessions | Where-Object { $_.Mode -eq "Normal" } | Measure-Object -Property DurationMinutes -Sum).Sum
+
+        # Ensure numeric values are valid
+        $workMinutes = if ($null -eq $workMinutes -or $workMinutes -eq [double]::NaN) { 0 } else { $workMinutes }
+        $normalMinutes = if ($null -eq $normalMinutes -or $normalMinutes -eq [double]::NaN) { 0 } else { $normalMinutes }
+
+        $totalMinutes = $workMinutes + $normalMinutes
+        $workPercentage = if ($totalMinutes -gt 0) { [Math]::Round(($workMinutes / $totalMinutes) * 100, 1) } else { 0 }
+
+        # Safe duration calculations
+        $workDuration = if ($workMinutes -ge 0) { New-TimeSpan -Minutes $workMinutes } else { [TimeSpan]::Zero }
+        $normalDuration = if ($normalMinutes -ge 0) { New-TimeSpan -Minutes $normalMinutes } else { [TimeSpan]::Zero }
+
         return @{
-            WorkTime = "0h 0m"
-            NormalTime = "0h 0m"
+            WorkTime       = Format-Duration -Duration $workDuration
+            NormalTime     = Format-Duration -Duration $normalDuration
+            WorkPercentage = $workPercentage
+        }
+    } catch {
+        return @{
+            WorkTime = "0h 0m 0s"
+            NormalTime = "0h 0m 0s"
             WorkPercentage = 0
         }
-    }
-
-    $workMinutes   = ($todaySessions | Where-Object { $_.Mode -eq "Work" }   | Measure-Object -Property DurationMinutes -Sum).Sum
-    $normalMinutes = ($todaySessions | Where-Object { $_.Mode -eq "Normal" } | Measure-Object -Property DurationMinutes -Sum).Sum
-
-    $totalMinutes = $workMinutes + $normalMinutes
-    $workPercentage = if ($totalMinutes -gt 0) { [Math]::Round(($workMinutes / $totalMinutes) * 100, 1) } else { 0 }
-
-    return @{
-        WorkTime       = Format-Duration -Duration (New-TimeSpan -Minutes $workMinutes)
-        NormalTime     = Format-Duration -Duration (New-TimeSpan -Minutes $normalMinutes)
-        WorkPercentage = $workPercentage
     }
 }
 

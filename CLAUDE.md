@@ -15,6 +15,11 @@ Quick commands (development & tests)
 - Local install: `.\scripts\install-local.ps1`
 - Remote (simulate): `irm https://raw.githubusercontent.com/haikalllp/WorkMode-Hostess/master/scripts/install-remote.ps1 | iex`
 
+Key Testing Guideline:
+- Always use pwsh for running test scripts
+- Avoid default Windows PowerShell 5.1 for testing operations
+- Use the consistent command pattern with pwsh -Command
+
 Command conventions
 - All user-facing commands use the `wmh-` prefix: e.g. `wmh-on`, `wmh-off`, `wmh-status`, `wmh-stats`, `wmh-add`, `wmh-remove`, `wmh-list`, `wmh-update`, `wmh-doctor`, `wmh-track`, `wmh-uninstall`.
 - `-force` (with `-f` alias) is supported where noted (e.g. `wmh-on -force`, `wmh-off -force`) to bypass state checks and recover sessions.
@@ -48,6 +53,6 @@ MCP tools (Byterover) — when to use
 - `byterover-store-knowledge`: use when learning new patterns/APIs from the codebase; encountering error solutions; finding reusable code or utilities; or after completing any significant task/plan implementation.
 - `byterover-retrieve-knowledge`: use when starting a new task; before architectural decisions; when debugging to check prior solutions; or when working with unfamiliar parts of the codebase.
 
-Context7 (library docs) - when to use
+MCP tools 2 Upstash-Context7 (library docs) - when to use
 - Please run `upstash-context7-mcp` to better understand cbednarski/hostess by pulling its relevant documentation and code using the mcp tool.
 - Please run `upstash-context7-mcp` to better understand PowerShell modules development by pulling relevant documentation and code using the mcp tool.
